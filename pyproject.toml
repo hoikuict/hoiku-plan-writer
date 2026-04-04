@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hoiku-plan-writer"
+version = "0.1.0"
+description = "保育計画文書作成アプリのMVP土台"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name = "Codex" },
+]
+dependencies = []
+
+[project.scripts]
+hoiku-plan = "hoiku_plan_writer.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "app" }
+
+[tool.setuptools.packages.find]
+where = ["app"]
