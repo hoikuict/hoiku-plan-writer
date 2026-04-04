@@ -1,0 +1,55 @@
+﻿{% extends "base.html" %}
+{% block title %}文書一覧 | hoiku-plan-writer{% endblock %}
+{% block content %}
+<div class="flex flex-col gap-6">
+  <section class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-200">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div>
+        <p class="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">Documents</p>
+        <h1 class="mt-2 text-3xl font-bold text-stone-900">保育計画文書</h1>
+        <p class="mt-2 text-sm text-stone-600">年間指導計画と月案を、園プロファイルを軸にサーバ側で作成・レビューします。</p>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <a href="/nursery-profile/" class="rounded-xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">園プロファイルを整える</a>
+        <a href="/annual-plans/new" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">年間指導計画を作る</a>
+        <a href="/monthly-plans/new" class="rounded-xl bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800">月案を作る</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-200">
+    <form
+      class="grid gap-4 md:grid-cols-[16rem_16rem_auto]"
+      method="get"
+      action="/documents/"
+      hx-get="/documents/"
+      hx-target="#document-list"
+      hx-push-url="true"
+    >
+      <label class="block text-sm font-medium text-stone-700">
+        ステータス
+        <select name="status" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
+          {% for option in status_options %}
+          <option value="{{ option.value }}" {% if option.value == status_filter %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="block text-sm font-medium text-stone-700">
+        文書種別
+        <select name="document_type" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
+          {% for option in type_options %}
+          <option value="{{ option.value }}" {% if option.value == document_type_filter %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="flex items-end">
+        <button type="submit" class="w-full rounded-xl bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800">絞り込む</button>
+      </div>
+    </form>
+  </section>
+
+  <div id="document-list">
+    {% include "documents/_list.html" %}
+  </div>
+</div>
+{% endblock %}

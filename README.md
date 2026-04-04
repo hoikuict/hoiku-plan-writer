@@ -1,22 +1,44 @@
 ﻿# hoiku-plan-writer
 
-保育園向けの保育計画文書作成アプリです。現時点では、MVP仕様書に沿って「園プロファイル」「年間指導計画」「月案」「レビュー可能な構造化出力」の土台を Python で整えています。
+`open-hoikuict` から独立公開する、保育計画文書作成アプリです。将来の本体統合を前提に、設計思想は継承しつつ、文書作成ドメインだけを独立した bounded context として切り出しています。
+
+## 継承しているもの
+
+- `FastAPI + SQLModel + Jinja2 + HTMX`
+- サーバ中心の画面構成
+- role ベース権限制御
+- 本体統合しやすい参照契約
+
+## 継承しないもの
+
+- 既存業務モデルへの直接依存
+- 本体 DB への密結合
+- 単一 DB 前提の外部キー設計
 
 ## 現状
 
-- 仕様書に合わせたドメインモデルを追加
-- 年間指導計画と月案の最小生成ロジックを追加
-- 生成結果をセクション単位で保持する構造を追加
-- CLI からサンプル生成を確認できる入口を追加
-- 標準ライブラリで動く最小テストを追加
+- `open-hoikuict` 継承方針を ADR 化
+- 園プロファイル、年間指導計画、月案、レビューの初期 Web 画面を追加
+- 文書をセクション単位で保持する SQLModel 永続化を追加
+- `nursery_ref / classroom_ref / actor_ref` ベースの境界設計を追加
+- CLI のサンプル生成も維持
 
 ## ディレクトリ
 
 ```text
 C:\python\hoiku-plan-writer
-|- app\hoiku_plan_writer\      # アプリ本体
-|- docs\                       # 仕様・設計メモ
-|- tests\                      # テスト
+|- app\hoiku_plan_writer\
+|  |- auth.py
+|  |- db.py
+|  |- main.py
+|  |- domain\
+|  |- persistence\
+|  |- services\
+|  |- templates\
+|  `- web\
+|- docs\
+|  `- adr\
+|- tests\
 |- pyproject.toml
 `- README.md
 ```
@@ -29,40 +51,49 @@ python -m venv .venv
 python -m pip install -e .
 ```
 
-依存は最小限にしているので、初期段階では標準ライブラリ中心で動きます。
-
-## 使い方
-
-年間指導計画のサンプル出力:
+## 起動
 
 ```powershell
-python -m hoiku_plan_writer demo-annual
+uvicorn hoiku_plan_writer.main:app --reload
 ```
 
-月案のサンプル出力:
+または
 
 ```powershell
-python -m hoiku_plan_writer demo-monthly
+hoiku-plan-server
 ```
 
-セクションキー一覧:
+## 主な画面
 
-```powershell
-python -m hoiku_plan_writer section-keys
-```
+- `/staff/login`
+  モック職員ログイン。role / nursery_ref / classroom_refs を切り替えられます。
+- `/nursery-profile/`
+  園プロファイルの保存と有効化
+- `/annual-plans/new`
+  年間指導計画のプレビューと下書き保存
+- `/monthly-plans/new`
+  月案のプレビューと下書き保存
+- `/documents/`
+  文書一覧とレビュー
 
 ## テスト
+
+標準ライブラリのテスト:
 
 ```powershell
 $env:PYTHONPATH = "app"
 python -m unittest discover -s tests
 ```
 
-## 次の実装候補
+この作業では、依存が入っている参照元仮想環境を使って以下を確認しました。
 
-- Web UI またはフォーム UI の追加
-- 下書き保存と版管理
-- レビュー履歴と承認フロー
-- AI 連携部分の実装
-- PDF 向けレイアウト整備
+```powershell
+$env:PYTHONPATH = "app"
+C:\python\open-hoikuict\venv\Scripts\python.exe -m unittest discover -s tests
+```
 
+## 設計メモ
+
+- ADR は `docs/adr/` に配置
+- `section_key` と `source_refs` は将来統合向けの安定契約として扱う
+- 文書ブロックは DB 上でも独立行として保持し、将来の部分再生成や差分保存に備える

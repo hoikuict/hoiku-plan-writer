@@ -1,0 +1,88 @@
+﻿{% extends "base.html" %}
+{% block title %}園プロファイル | hoiku-plan-writer{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <section class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-200">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div>
+        <p class="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">Nursery Profile</p>
+        <h1 class="mt-2 text-3xl font-bold text-stone-900">園プロファイル</h1>
+        <p class="mt-2 text-sm text-stone-600">AI の文体と判断軸になるプロフィールです。ここで保存・有効化した版だけを文書生成に使います。</p>
+      </div>
+      {% if active_profile %}
+      <div class="rounded-2xl bg-stone-50 px-4 py-3 text-sm text-stone-600">
+        <p>有効版: v{{ active_profile.version }}</p>
+        <p class="mt-1">{{ active_profile.nursery_name }}</p>
+      </div>
+      {% endif %}
+    </div>
+    {% if saved %}
+    <div class="mt-4 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">園プロファイルを保存しました。</div>
+    {% endif %}
+  </section>
+
+  <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+    <form method="post" action="/nursery-profile/" class="space-y-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-200">
+      <section class="grid gap-4 md:grid-cols-2">
+        <label class="block text-sm font-medium text-stone-700">園名<input name="nursery_name" value="{{ form_data.nursery_name }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" required></label>
+        <label class="block text-sm font-medium text-stone-700">対象年齢<input name="target_age_group" value="{{ form_data.target_age_group }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" required></label>
+        <label class="block text-sm font-medium text-stone-700 md:col-span-2">クラス編成<input name="class_configuration" value="{{ form_data.class_configuration }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" required></label>
+      </section>
+
+      <section class="grid gap-4">
+        <label class="block text-sm font-medium text-stone-700">理念<textarea name="philosophy" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" required>{{ form_data.philosophy }}</textarea></label>
+        <label class="block text-sm font-medium text-stone-700">保育目標<textarea name="childcare_goal" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" required>{{ form_data.childcare_goal }}</textarea></label>
+        <label class="block text-sm font-medium text-stone-700">育てたい子ども像<textarea name="desired_child_image" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" required>{{ form_data.desired_child_image }}</textarea></label>
+        <label class="block text-sm font-medium text-stone-700">子ども観<textarea name="child_view" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" required>{{ form_data.child_view }}</textarea></label>
+        <label class="block text-sm font-medium text-stone-700">遊びの考え方<textarea name="play_view" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" required>{{ form_data.play_view }}</textarea></label>
+        <label class="block text-sm font-medium text-stone-700">援助方針<textarea name="support_policy" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" required>{{ form_data.support_policy }}</textarea></label>
+      </section>
+
+      <section class="grid gap-4 md:grid-cols-2">
+        <label class="block text-sm font-medium text-stone-700">室内環境<textarea name="indoor_environment" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.indoor_environment }}</textarea></label>
+        <label class="block text-sm font-medium text-stone-700">戸外環境<textarea name="outdoor_environment" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.outdoor_environment }}</textarea></label>
+        <label class="block text-sm font-medium text-stone-700">コーナー保育<textarea name="corner_play" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.corner_play }}</textarea></label>
+        <label class="block text-sm font-medium text-stone-700">地域資源<textarea name="community_resources" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.community_resources }}</textarea></label>
+        <label class="block text-sm font-medium text-stone-700">家庭連携方針<textarea name="family_collaboration_policy" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.family_collaboration_policy }}</textarea></label>
+        <label class="block text-sm font-medium text-stone-700">地域との関わり<textarea name="local_collaboration_policy" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.local_collaboration_policy }}</textarea></label>
+        <label class="block text-sm font-medium text-stone-700">健康・安全方針<textarea name="health_and_safety_policy" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.health_and_safety_policy }}</textarea></label>
+        <label class="block text-sm font-medium text-stone-700">インクルーシブ方針<textarea name="inclusive_policy" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.inclusive_policy }}</textarea></label>
+      </section>
+
+      <section class="grid gap-4 md:grid-cols-2">
+        <label class="block text-sm font-medium text-stone-700">よく使う表現<textarea name="preferred_expressions" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.preferred_expressions }}</textarea></label>
+        <label class="block text-sm font-medium text-stone-700">避けたい表現<textarea name="avoid_expressions" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.avoid_expressions }}</textarea></label>
+        <label class="block text-sm font-medium text-stone-700">文末トーン<input name="sentence_tone" value="{{ form_data.sentence_tone }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2"></label>
+        <label class="block text-sm font-medium text-stone-700">未入力時の扱い<input name="missing_input_policy" value="{{ form_data.missing_input_policy }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2"></label>
+        <label class="block text-sm font-medium text-stone-700">要確認表示<input name="confirmation_marker" value="{{ form_data.confirmation_marker }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2"></label>
+        <label class="block text-sm font-medium text-stone-700">根拠タグ表示方針<input name="evidence_tag_policy" value="{{ form_data.evidence_tag_policy }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2"></label>
+      </section>
+
+      <div class="flex flex-wrap gap-3">
+        <button type="submit" name="action" value="save" class="rounded-xl bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800">保存する</button>
+        {% if current_user.is_admin %}
+        <button type="submit" name="action" value="activate" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">保存して有効化</button>
+        {% endif %}
+      </div>
+    </form>
+
+    <aside class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-200">
+      <h2 class="text-lg font-semibold text-stone-900">版一覧</h2>
+      <div class="mt-4 space-y-3">
+        {% for version in profile_versions %}
+        <div class="rounded-2xl bg-stone-50 px-4 py-4 text-sm text-stone-600">
+          <div class="flex items-center justify-between">
+            <span class="font-semibold text-stone-900">v{{ version.version }}</span>
+            {% if version.approved %}<span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">有効</span>{% endif %}
+          </div>
+          <p class="mt-2">{{ version.nursery_name }}</p>
+          <p class="mt-1 text-xs text-stone-500">{{ version.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+        </div>
+        {% else %}
+        <p class="text-sm text-stone-500">まだ保存された版はありません。</p>
+        {% endfor %}
+      </div>
+    </aside>
+  </div>
+</div>
+{% endblock %}

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -17,6 +17,7 @@ class DocumentType(StrEnum):
 class DocumentStatus(StrEnum):
     DRAFT = "draft"
     APPROVED = "approved"
+    RETURNED = "returned"
 
 
 class EvidenceTag(StrEnum):
@@ -27,11 +28,19 @@ class EvidenceTag(StrEnum):
 
 
 @dataclass(slots=True)
+class SourceRef:
+    kind: str
+    ref: str
+    label: str
+
+
+@dataclass(slots=True)
 class SectionBlock:
     section_key: str
     title: str
     body: str
     evidence_tags: list[EvidenceTag] = field(default_factory=list)
+    source_refs: list[SourceRef] = field(default_factory=list)
     needs_confirmation: bool = False
     editor_note: str | None = None
 

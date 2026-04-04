@@ -1,6 +1,6 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-from ..domain.models import GeneratedPlan, SectionBlock
+from ..domain.models import GeneratedPlan, SectionBlock, SourceRef
 from ..domain.section_catalog import MONTHLY_SECTIONS, annual_section_definitions
 
 
@@ -20,8 +20,17 @@ def block_to_dict(block: SectionBlock) -> dict[str, object]:
         "title": block.title,
         "body": block.body,
         "evidence_tags": [tag.value for tag in block.evidence_tags],
+        "source_refs": [source_ref_to_dict(source_ref) for source_ref in block.source_refs],
         "needs_confirmation": block.needs_confirmation,
         "editor_note": block.editor_note,
+    }
+
+
+def source_ref_to_dict(source_ref: SourceRef) -> dict[str, str]:
+    return {
+        "kind": source_ref.kind,
+        "ref": source_ref.ref,
+        "label": source_ref.label,
     }
 
 

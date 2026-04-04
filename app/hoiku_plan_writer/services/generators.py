@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-from dataclasses import replace
+﻿from __future__ import annotations
 
 from ..domain.models import (
     AnnualPlanInput,
@@ -11,6 +9,7 @@ from ..domain.models import (
     MonthlyPlanInput,
     NurseryProfile,
     SectionBlock,
+    SourceRef,
 )
 from ..domain.section_catalog import ANNUAL_TERM_ORDER
 
@@ -20,6 +19,8 @@ TERM_FOCUS = {
     "term_3": "経験を共有しながら、目的に向かって協力する。",
     "term_4": "育ちを確かめ合い、次の生活への見通しを持つ。",
 }
+
+TERM_LABELS = dict(ANNUAL_TERM_ORDER)
 
 
 def generate_annual_plan(profile: NurseryProfile, plan_input: AnnualPlanInput) -> GeneratedPlan:
@@ -41,6 +42,12 @@ def generate_annual_plan(profile: NurseryProfile, plan_input: AnnualPlanInput) -
                 ),
             ),
             evidence_tags=_evidence_tags(include_public_guidance=True),
+            source_refs=[
+                _profile_source_ref(profile),
+                _official_source_ref(),
+                _input_source_ref("class_outlook", "今年のクラスの見通し"),
+                _input_source_ref("focus_growth", "今年特に大切にしたい育ち"),
+            ],
             needs_confirmation=bool(missing_inputs),
             editor_note=_editor_note(missing_inputs),
         )
@@ -64,6 +71,12 @@ def generate_annual_plan(profile: NurseryProfile, plan_input: AnnualPlanInput) -
                         ),
                     ),
                     evidence_tags=_evidence_tags(include_public_guidance=True),
+                    source_refs=[
+                        _profile_source_ref(profile),
+                        _official_source_ref(),
+                        _input_source_ref("class_outlook", "今年のクラスの見通し"),
+                        _input_source_ref("focus_growth", "今年特に大切にしたい育ち"),
+                    ],
                     needs_confirmation=bool(missing_inputs),
                     editor_note=_editor_note(missing_inputs),
                 ),
@@ -81,6 +94,11 @@ def generate_annual_plan(profile: NurseryProfile, plan_input: AnnualPlanInput) -
                         ),
                     ),
                     evidence_tags=_evidence_tags(include_public_guidance=False),
+                    source_refs=[
+                        _profile_source_ref(profile),
+                        _input_source_ref("seasonal_context", "季節・地域文脈"),
+                        _input_source_ref("community_resources", "地域資源"),
+                    ],
                     needs_confirmation=bool(missing_inputs),
                     editor_note=_editor_note(missing_inputs),
                 ),
@@ -98,6 +116,11 @@ def generate_annual_plan(profile: NurseryProfile, plan_input: AnnualPlanInput) -
                         ),
                     ),
                     evidence_tags=_evidence_tags(include_public_guidance=True),
+                    source_refs=[
+                        _profile_source_ref(profile),
+                        _official_source_ref(),
+                        _input_source_ref("care_points", "配慮事項"),
+                    ],
                     needs_confirmation=bool(missing_inputs),
                     editor_note=_editor_note(missing_inputs),
                 ),
@@ -114,6 +137,10 @@ def generate_annual_plan(profile: NurseryProfile, plan_input: AnnualPlanInput) -
                         ),
                     ),
                     evidence_tags=_evidence_tags(include_public_guidance=False),
+                    source_refs=[
+                        _profile_source_ref(profile),
+                        _input_source_ref("annual_events", "年間行事"),
+                    ],
                     needs_confirmation=bool(missing_inputs),
                     editor_note=_editor_note(missing_inputs),
                 ),
@@ -131,6 +158,10 @@ def generate_annual_plan(profile: NurseryProfile, plan_input: AnnualPlanInput) -
                         ),
                     ),
                     evidence_tags=_evidence_tags(include_public_guidance=True),
+                    source_refs=[
+                        _official_source_ref(),
+                        _profile_source_ref(profile),
+                    ],
                     needs_confirmation=bool(missing_inputs),
                     editor_note=_editor_note(missing_inputs),
                 ),
@@ -155,8 +186,9 @@ def generate_monthly_plan(
     missing_inputs = _collect_missing_monthly_inputs(profile, plan_input, annual_term_context)
     confirmation_note = _confirmation_text(profile, missing_inputs)
 
+    term_label = TERM_LABELS.get(plan_input.related_term_key, plan_input.related_term_key)
     goal_text = (
-        f"{plan_input.target_month}は、年間計画の{plan_input.related_term_key}で示した方向性を踏まえ、"
+        f"{plan_input.target_month}は、年間計画の{term_label}で示した方向性を踏まえ、"
         f"{plan_input.current_children_snapshot} に応じたねらいを立てる。"
     )
     if annual_term_context:
@@ -176,6 +208,13 @@ def generate_monthly_plan(
                 ),
             ),
             evidence_tags=_evidence_tags(include_public_guidance=True),
+            source_refs=[
+                _profile_source_ref(profile),
+                _official_source_ref(),
+                _annual_plan_source_ref(annual_plan),
+                _input_source_ref("previous_reflection", "前月の反省"),
+                _input_source_ref("current_children_snapshot", "今の子どもの姿"),
+            ],
             needs_confirmation=bool(missing_inputs),
             editor_note=_editor_note(missing_inputs),
         ),
@@ -193,6 +232,10 @@ def generate_monthly_plan(
                 ),
             ),
             evidence_tags=_evidence_tags(include_public_guidance=False),
+            source_refs=[
+                _input_source_ref("current_children_snapshot", "今の子どもの姿"),
+                _input_source_ref("previous_reflection", "前月の反省"),
+            ],
             needs_confirmation=bool(missing_inputs),
             editor_note=_editor_note(missing_inputs),
         ),
@@ -210,6 +253,11 @@ def generate_monthly_plan(
                 ),
             ),
             evidence_tags=_evidence_tags(include_public_guidance=False),
+            source_refs=[
+                _profile_source_ref(profile),
+                _input_source_ref("play_interests", "興味を持っている遊び・生活"),
+                _input_source_ref("seasonal_context", "季節・家庭文脈"),
+            ],
             needs_confirmation=bool(missing_inputs),
             editor_note=_editor_note(missing_inputs),
         ),
@@ -227,6 +275,11 @@ def generate_monthly_plan(
                 ),
             ),
             evidence_tags=_evidence_tags(include_public_guidance=True),
+            source_refs=[
+                _profile_source_ref(profile),
+                _official_source_ref(),
+                _input_source_ref("class_notes", "クラス全体の留意事項"),
+            ],
             needs_confirmation=bool(missing_inputs),
             editor_note=_editor_note(missing_inputs),
         ),
@@ -243,6 +296,10 @@ def generate_monthly_plan(
                 ),
             ),
             evidence_tags=_evidence_tags(include_public_guidance=False),
+            source_refs=[
+                _profile_source_ref(profile),
+                _input_source_ref("family_context", "家庭の状況"),
+            ],
             needs_confirmation=bool(missing_inputs),
             editor_note=_editor_note(missing_inputs),
         ),
@@ -260,6 +317,10 @@ def generate_monthly_plan(
                 ),
             ),
             evidence_tags=_evidence_tags(include_public_guidance=True),
+            source_refs=[
+                _official_source_ref(),
+                _annual_plan_source_ref(annual_plan),
+            ],
             needs_confirmation=bool(missing_inputs),
             editor_note=_editor_note(missing_inputs),
         ),
@@ -342,3 +403,19 @@ def _editor_note(missing_inputs: list[str]) -> str | None:
     if not missing_inputs:
         return "必要に応じて表現を園の書式に合わせて微調整する。"
     return f"未入力項目の確認後に再生成する: {', '.join(missing_inputs)}"
+
+
+def _profile_source_ref(profile: NurseryProfile) -> SourceRef:
+    return SourceRef(kind="nursery_profile", ref=f"profile:v{profile.version}", label=f"園プロファイル v{profile.version}")
+
+
+def _official_source_ref() -> SourceRef:
+    return SourceRef(kind="official_guidance", ref="official:mvp", label="公的根拠")
+
+
+def _input_source_ref(key: str, label: str) -> SourceRef:
+    return SourceRef(kind="user_input", ref=f"input:{key}", label=label)
+
+
+def _annual_plan_source_ref(annual_plan: GeneratedPlan) -> SourceRef:
+    return SourceRef(kind="document", ref="document:annual-plan", label=annual_plan.title)

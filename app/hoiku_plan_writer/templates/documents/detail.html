@@ -1,0 +1,84 @@
+﻿{% extends "base.html" %}
+{% block title %}{{ document.title }} | hoiku-plan-writer{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <section class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-200">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div>
+        <p class="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">Review</p>
+        <h1 class="mt-2 text-3xl font-bold text-stone-900">{{ document.title }}</h1>
+        <div class="mt-3 flex flex-wrap gap-2 text-sm text-stone-600">
+          <span>種別: {{ document.document_type_label }}</span>
+          <span>クラス: {{ document.classroom_ref }}</span>
+          <span>nursery_ref: {{ document.nursery_ref }}</span>
+          <span>actor_ref: {{ document.actor_ref }}</span>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <span class="rounded-full px-3 py-1 text-xs font-semibold {% if document.status == 'approved' %}bg-emerald-100 text-emerald-700{% elif document.status == 'returned' %}bg-amber-100 text-amber-700{% else %}bg-stone-100 text-stone-700{% endif %}">{{ document.status_label }}</span>
+        {% if document.related_document_id and related_document %}
+        <a href="/documents/{{ related_document.id }}" class="rounded-xl border border-stone-300 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">関連年間計画を見る</a>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if document.source_refs_json %}
+    <div class="mt-5 rounded-2xl bg-stone-50 px-4 py-4">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Document Source Refs</p>
+      <div class="mt-3 flex flex-wrap gap-2">
+        {% for source_ref in document.source_refs_json %}
+        <span class="rounded-full border border-stone-300 px-3 py-1 text-xs text-stone-600">{{ source_ref.kind }} / {{ source_ref.label }} / {{ source_ref.ref }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </section>
+
+  {% if current_user.is_admin %}
+  <section class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-200">
+    <h2 class="text-lg font-semibold text-stone-900">承認操作</h2>
+    <div class="mt-4 grid gap-4 lg:grid-cols-2">
+      <form method="post" action="/documents/{{ document.id }}/status" class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+        <input type="hidden" name="action" value="approve">
+        <label class="block text-sm font-medium text-stone-700">
+          コメント
+          <textarea name="comment" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">承認しました。</textarea>
+        </label>
+        <button type="submit" class="mt-4 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">承認する</button>
+      </form>
+
+      <form method="post" action="/documents/{{ document.id }}/status" class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+        <input type="hidden" name="action" value="return">
+        <label class="block text-sm font-medium text-stone-700">
+          差戻しコメント
+          <textarea name="comment" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">要確認項目を見直してください。</textarea>
+        </label>
+        <button type="submit" class="mt-4 rounded-xl bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500">差戻しする</button>
+      </form>
+    </div>
+  </section>
+  {% endif %}
+
+  {% set blocks = document.blocks %}
+  {% include "documents/_plan_blocks.html" %}
+
+  <section class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-200">
+    <h2 class="text-lg font-semibold text-stone-900">履歴</h2>
+    <div class="mt-4 space-y-3">
+      {% for log in document.approval_logs %}
+      <div class="rounded-2xl bg-stone-50 px-4 py-4">
+        <div class="flex flex-wrap items-center gap-3 text-sm">
+          <span class="rounded-full bg-white px-3 py-1 font-semibold text-stone-700">{{ log.action_label }}</span>
+          <span class="text-stone-600">{{ log.actor_ref }}</span>
+          <span class="text-stone-500">{{ log.role }}</span>
+          <span class="text-stone-500">{{ log.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+        </div>
+        {% if log.comment %}
+        <p class="mt-2 text-sm text-stone-700">{{ log.comment }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

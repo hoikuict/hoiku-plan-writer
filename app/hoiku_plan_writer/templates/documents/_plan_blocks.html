@@ -1,0 +1,39 @@
+﻿<div class="space-y-4">
+  {% for block in blocks %}
+  {% set evidence_tags = block.evidence_tags if block.evidence_tags is defined else block.evidence_tags_json %}
+  {% set source_refs = block.source_refs if block.source_refs is defined else block.source_refs_json %}
+  <article class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-stone-200">
+    <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+      <div>
+        <h4 class="text-lg font-semibold text-stone-900">{{ block.title }}</h4>
+        <p class="mt-1 text-xs text-stone-500">section_key: {{ block.section_key }}</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        {% for tag in evidence_tags %}
+        <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{{ tag.value if tag.value is defined else tag }}</span>
+        {% endfor %}
+        {% if block.needs_confirmation %}
+        <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">要確認</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="mt-4 whitespace-pre-line text-sm leading-7 text-stone-700">{{ block.body }}</div>
+
+    {% if source_refs %}
+    <div class="mt-4 rounded-2xl bg-stone-50 px-4 py-3">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Source Refs</p>
+      <div class="mt-2 flex flex-wrap gap-2">
+        {% for source_ref in source_refs %}
+        <span class="rounded-full border border-stone-300 px-3 py-1 text-xs text-stone-600">{{ source_ref.kind }} / {{ source_ref.label }} / {{ source_ref.ref }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if block.editor_note %}
+    <p class="mt-4 text-xs text-stone-500">編集メモ: {{ block.editor_note }}</p>
+    {% endif %}
+  </article>
+  {% endfor %}
+</div>
