@@ -42,6 +42,21 @@ class GeneratorTests(unittest.TestCase):
         self.assertTrue(all(block.needs_confirmation for block in annual_plan.blocks))
         self.assertTrue(all("要確認" in block.body for block in annual_plan.blocks))
 
+    def test_generate_annual_plan_ignores_disabled_optional_profile_fields(self) -> None:
+        profile = sample_profile()
+        profile.indoor_environment = "使わない室内環境の説明"
+        profile.enabled_field_keys = tuple(
+            key for key in profile.enabled_field_keys if key != "indoor_environment"
+        )
+
+        annual_plan = generate_annual_plan(profile, sample_annual_input())
+        term_environment = next(
+            block for block in annual_plan.blocks if block.section_key == "term_1_environment"
+        )
+
+        self.assertIn("落ち着いて選べる環境", term_environment.body)
+        self.assertNotIn("使わない室内環境の説明", term_environment.body)
+
     def test_generate_monthly_plan_uses_annual_context(self) -> None:
         profile = sample_profile()
         annual_plan = generate_annual_plan(profile, sample_annual_input())

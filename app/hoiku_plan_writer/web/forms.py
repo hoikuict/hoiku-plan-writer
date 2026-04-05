@@ -6,6 +6,7 @@ from datetime import date
 from fastapi import Form
 
 from ..domain.models import AnnualPlanInput, MonthlyPlanInput, NurseryProfile
+from ..domain.profile_fields import PROFILE_DEFAULT_ENABLED_KEYS, normalize_enabled_field_keys
 
 
 @dataclass(slots=True)
@@ -33,6 +34,10 @@ class ProfileFormData:
     missing_input_policy: str = "未入力は要確認として扱う。"
     confirmation_marker: str = "要確認"
     evidence_tag_policy: str = "根拠タグを表示する。"
+    enabled_field_keys: tuple[str, ...] = PROFILE_DEFAULT_ENABLED_KEYS
+
+    def __post_init__(self) -> None:
+        self.enabled_field_keys = normalize_enabled_field_keys(self.enabled_field_keys)
 
     def to_domain(self, *, approved: bool = False) -> NurseryProfile:
         return NurseryProfile(
@@ -60,6 +65,7 @@ class ProfileFormData:
             confirmation_marker=self.confirmation_marker,
             evidence_tag_policy=self.evidence_tag_policy,
             approved=approved,
+            enabled_field_keys=self.enabled_field_keys,
         )
 
     def as_snapshot(self) -> dict[str, object]:
@@ -155,6 +161,7 @@ def profile_form_data(
     missing_input_policy: str = Form("未入力は要確認として扱う。"),
     confirmation_marker: str = Form("要確認"),
     evidence_tag_policy: str = Form("根拠タグを表示する。"),
+    enabled_field_keys: list[str] | None = Form(None),
 ) -> ProfileFormData:
     return ProfileFormData(
         nursery_name=nursery_name,
@@ -180,6 +187,7 @@ def profile_form_data(
         missing_input_policy=missing_input_policy,
         confirmation_marker=confirmation_marker,
         evidence_tag_policy=evidence_tag_policy,
+        enabled_field_keys=tuple(enabled_field_keys or ()),
     )
 
 
@@ -242,4 +250,3 @@ def monthly_plan_form_data(
         family_context=family_context,
         class_notes=class_notes,
     )
-

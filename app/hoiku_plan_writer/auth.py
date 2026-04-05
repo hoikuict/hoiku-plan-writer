@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
@@ -26,6 +26,21 @@ MOCK_NURSERY_REF_COOKIE = "mock_nursery_ref"
 MOCK_CLASSROOMS_COOKIE = "mock_classroom_refs"
 MOCK_STAFF_NAME_COOKIE = "mock_staff_name"
 COOKIE_MAX_AGE = 60 * 60 * 24
+
+
+def _cookie_options(request: Request | None = None) -> dict[str, object]:
+    from .demo_runtime import load_demo_settings, should_use_secure_cookies
+
+    settings = load_demo_settings()
+    options: dict[str, object] = {
+        "httponly": True,
+        "samesite": "lax",
+        "secure": should_use_secure_cookies(request, settings),
+        "path": "/",
+    }
+    if not settings.enabled:
+        options["max_age"] = COOKIE_MAX_AGE
+    return options
 
 
 def _parse_role(raw: str | None) -> StaffRole:
@@ -85,6 +100,7 @@ class StaffAuthBackend(Protocol):
         nursery_ref: str,
         classroom_refs: tuple[str, ...],
         name: str,
+        request: Request | None = None,
     ) -> None: ...
 
     def clear_session(self, response: Response) -> None: ...
@@ -125,19 +141,21 @@ class MockStaffAuthBackend:
         nursery_ref: str,
         classroom_refs: tuple[str, ...],
         name: str,
+        request: Request | None = None,
     ) -> None:
-        response.set_cookie(MOCK_ROLE_COOKIE, role.value, max_age=COOKIE_MAX_AGE)
-        response.set_cookie(MOCK_ACTOR_REF_COOKIE, actor_ref, max_age=COOKIE_MAX_AGE)
-        response.set_cookie(MOCK_NURSERY_REF_COOKIE, nursery_ref, max_age=COOKIE_MAX_AGE)
-        response.set_cookie(MOCK_CLASSROOMS_COOKIE, ",".join(classroom_refs), max_age=COOKIE_MAX_AGE)
-        response.set_cookie(MOCK_STAFF_NAME_COOKIE, quote(name), max_age=COOKIE_MAX_AGE)
+        cookie_options = _cookie_options(request)
+        response.set_cookie(MOCK_ROLE_COOKIE, role.value, **cookie_options)
+        response.set_cookie(MOCK_ACTOR_REF_COOKIE, actor_ref, **cookie_options)
+        response.set_cookie(MOCK_NURSERY_REF_COOKIE, nursery_ref, **cookie_options)
+        response.set_cookie(MOCK_CLASSROOMS_COOKIE, ",".join(classroom_refs), **cookie_options)
+        response.set_cookie(MOCK_STAFF_NAME_COOKIE, quote(name), **cookie_options)
 
     def clear_session(self, response: Response) -> None:
-        response.delete_cookie(MOCK_ROLE_COOKIE)
-        response.delete_cookie(MOCK_ACTOR_REF_COOKIE)
-        response.delete_cookie(MOCK_NURSERY_REF_COOKIE)
-        response.delete_cookie(MOCK_CLASSROOMS_COOKIE)
-        response.delete_cookie(MOCK_STAFF_NAME_COOKIE)
+        response.delete_cookie(MOCK_ROLE_COOKIE, path="/")
+        response.delete_cookie(MOCK_ACTOR_REF_COOKIE, path="/")
+        response.delete_cookie(MOCK_NURSERY_REF_COOKIE, path="/")
+        response.delete_cookie(MOCK_CLASSROOMS_COOKIE, path="/")
+        response.delete_cookie(MOCK_STAFF_NAME_COOKIE, path="/")
 
 
 _staff_auth_backend: StaffAuthBackend = MockStaffAuthBackend()
@@ -164,6 +182,7 @@ def set_staff_session(
     nursery_ref: str,
     classroom_refs: tuple[str, ...],
     name: str,
+    request: Request | None = None,
 ) -> None:
     _staff_auth_backend.set_session(
         response,
@@ -172,6 +191,7 @@ def set_staff_session(
         nursery_ref=nursery_ref,
         classroom_refs=classroom_refs,
         name=name,
+        request=request,
     )
 
 

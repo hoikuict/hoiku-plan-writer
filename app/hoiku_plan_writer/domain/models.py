@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from .profile_fields import PROFILE_DEFAULT_ENABLED_KEYS, normalize_enabled_field_keys
+
 
 class Role(StrEnum):
     ADMIN = "admin"
@@ -16,6 +18,7 @@ class DocumentType(StrEnum):
 
 class DocumentStatus(StrEnum):
     DRAFT = "draft"
+    SUBMITTED = "submitted"
     APPROVED = "approved"
     RETURNED = "returned"
 
@@ -72,6 +75,18 @@ class NurseryProfile:
     evidence_tag_policy: str = "根拠タグを表示する。"
     approved: bool = True
     version: int = 1
+    enabled_field_keys: tuple[str, ...] = PROFILE_DEFAULT_ENABLED_KEYS
+
+    def __post_init__(self) -> None:
+        self.enabled_field_keys = normalize_enabled_field_keys(self.enabled_field_keys)
+
+    def is_field_enabled(self, field_key: str) -> bool:
+        return field_key in self.enabled_field_keys
+
+    def text_for(self, field_key: str) -> str:
+        if not self.is_field_enabled(field_key):
+            return ""
+        return str(getattr(self, field_key, "") or "")
 
 
 @dataclass(slots=True)

@@ -1,4 +1,4 @@
-﻿# 初期アーキテクチャ
+# 初期アーキテクチャ
 
 ## 継承元
 
@@ -20,6 +20,7 @@
 - 年間指導計画 / 月案
 - セクション単位の文書ブロック
 - 承認ログ
+- AI 生成用の prompt / contract / adapter
 
 ### 外部とつなぐ安定契約
 
@@ -48,7 +49,9 @@
 - `domain`
   文書生成に使う純粋なドメインモデル
 - `services`
-  年間計画・月案の生成ロジック
+  既定 generator と serializer
+- `ai`
+  LLM provider adapter、structured output contract、prompt builder、preview 用サービス
 
 ## 実装方針
 
@@ -56,3 +59,5 @@
 - JSON API は必要になるまで主経路にしない
 - 文書は全文テキストではなくブロック構造で保持する
 - 後の本体統合は adapter を追加して対応する
+- LLM は直接 `web` から呼ばず、`ai/` 境界の後ろに閉じ込める
+- 既定 generator はフォールバック兼ベースラインとして残す

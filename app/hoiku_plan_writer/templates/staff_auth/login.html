@@ -1,10 +1,23 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}職員ログイン | hoiku-plan-writer{% endblock %}
 {% block content %}
+{% set public_demo_mode = request.app.state.demo_settings.enabled if request is defined and request else false %}
 <div class="mx-auto max-w-2xl rounded-3xl bg-white p-8 shadow-sm ring-1 ring-stone-200">
   <p class="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">Staff Session</p>
   <h1 class="mt-2 text-3xl font-bold text-stone-900">職員ログイン</h1>
+  {% if public_demo_mode %}
+  <p class="mt-2 text-sm text-stone-600">公開デモでは、このブラウザだけのセッション DB を使います。表示名と role を選ぶだけで始められます。</p>
+  {% else %}
   <p class="mt-2 text-sm text-stone-600">`open-hoikuict` と同じく、最初は cookie ベースのモック認証で role / nursery / classroom scope を切り替えます。</p>
+  {% endif %}
+  <div class="mt-4 rounded-2xl bg-stone-50 px-4 py-4 text-sm text-stone-700">
+    <p class="font-semibold text-stone-900">ロールの使い分け</p>
+    <ul class="mt-2 space-y-1 text-sm text-stone-600">
+      <li>`can_edit` は園プロフィールの下書き保存や文書作成に使います。</li>
+      <li>`admin` は承認に加えて、園プロフィールの有効化に使います。</li>
+      <li>年間指導計画と月案には、有効化された園プロフィールだけが反映されます。</li>
+    </ul>
+  </div>
 
   <form method="post" action="/staff/login" class="mt-8 grid gap-5">
     <input type="hidden" name="redirect_to" value="{{ redirect_to }}">
@@ -14,6 +27,15 @@
       <input type="text" name="name" value="{{ current_user.name }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
     </label>
 
+    {% if public_demo_mode %}
+    <input type="hidden" name="actor_ref" value="{{ current_user.actor_ref }}">
+    <input type="hidden" name="nursery_ref" value="{{ current_user.nursery_ref }}">
+    <input type="hidden" name="classroom_refs_raw" value="{{ current_user.classroom_refs | join(',') }}">
+    <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
+      <p class="font-semibold">公開デモの補足</p>
+      <p class="mt-1">内部参照キーは固定し、このブラウザだけのデモデータに対して操作します。</p>
+    </div>
+    {% else %}
     <label class="block text-sm font-medium text-stone-700">
       actor_ref
       <input type="text" name="actor_ref" value="{{ current_user.actor_ref }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
@@ -29,6 +51,7 @@
       <input type="text" name="classroom_refs_raw" value="{{ current_user.classroom_refs | join(',') }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
       <span class="mt-1 block text-xs text-stone-500">カンマ区切りで指定します。例: classroom:5yo-a,classroom:4yo-a</span>
     </label>
+    {% endif %}
 
     <label class="block text-sm font-medium text-stone-700">
       role

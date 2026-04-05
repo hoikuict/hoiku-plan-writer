@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}月案作成 | hoiku-plan-writer{% endblock %}
 {% block content %}
 <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_28rem]">
@@ -8,6 +8,11 @@
       <h1 class="mt-2 text-3xl font-bold text-stone-900">月案を作成</h1>
       {% if active_profile %}
       <p class="mt-2 text-sm text-stone-600">有効な園プロファイル: v{{ active_profile.version }} / {{ active_profile.nursery_name }}</p>
+      {% elif latest_profile_version %}
+      <div class="mt-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        保存済みの園プロフィール: v{{ latest_profile_version.version }} / {{ latest_profile_version.nursery_name }}
+        ただし、まだ下書きのため月案には反映されません。管理者で有効化してください。
+      </div>
       {% else %}
       <p class="mt-2 text-sm text-amber-700">有効な園プロファイルがまだありません。先に園プロファイルを有効化してください。</p>
       {% endif %}
@@ -16,14 +21,20 @@
       {% endif %}
     </div>
 
+    {% if current_user.classroom_refs | length == 1 %}
+    <input type="hidden" name="classroom_ref" value="{{ form_data.classroom_ref }}">
+    {% endif %}
+
     <section class="grid gap-4 md:grid-cols-2">
-      <label class="block text-sm font-medium text-stone-700">classroom_ref
+      {% if current_user.classroom_refs | length > 1 %}
+      <label class="block text-sm font-medium text-stone-700">担当クラス
         <select name="classroom_ref" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
           {% for classroom_ref in current_user.classroom_refs %}
           <option value="{{ classroom_ref }}" {% if classroom_ref == form_data.classroom_ref %}selected{% endif %}>{{ classroom_ref }}</option>
           {% endfor %}
         </select>
       </label>
+      {% endif %}
       <label class="block text-sm font-medium text-stone-700">対象月<input name="target_month" value="{{ form_data.target_month }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2"></label>
       <label class="block text-sm font-medium text-stone-700">クラス名<input name="class_name" value="{{ form_data.class_name }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" required></label>
       <label class="block text-sm font-medium text-stone-700">担当者<input name="owner_name" value="{{ form_data.owner_name }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" required></label>
@@ -56,9 +67,18 @@
       <label class="block text-sm font-medium text-stone-700">クラス全体の留意事項<textarea name="class_notes" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.class_notes }}</textarea></label>
     </section>
 
-    <div class="flex flex-wrap gap-3">
-      <button type="button" hx-post="/monthly-plans/preview" hx-include="#monthly-plan-form" hx-target="#preview-panel" class="rounded-xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">プレビュー</button>
+    <div class="flex flex-wrap gap-3 items-center">
+      <button
+        id="monthly-preview-button"
+        type="submit"
+        formaction="/monthly-plans/preview"
+        formmethod="post"
+        formnovalidate
+        class="rounded-xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
+      >プレビュー</button>
       <button type="submit" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">下書きを保存</button>
+      <a href="/nursery-profile/" class="rounded-xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">園プロフィールを開く</a>
+      <p id="monthly-preview-status" class="hidden text-sm text-stone-500">プレビューを生成中です。しばらくお待ちください。</p>
     </div>
   </form>
 
@@ -68,8 +88,25 @@
       <p class="mt-2 text-sm text-stone-600">年間計画の該当期を参照して、サーバ側で月案の下書きを構成します。</p>
     </div>
     <div id="preview-panel">
+      {% with plan=preview_plan, error_message=preview_error_message, generation_note="" %}
       {% include "documents/_preview.html" %}
+      {% endwith %}
     </div>
   </section>
 </div>
+<script>
+  (function () {
+    const form = document.getElementById('monthly-plan-form');
+    const previewButton = document.getElementById('monthly-preview-button');
+    const status = document.getElementById('monthly-preview-status');
+    if (!form || !previewButton || !status) {
+      return;
+    }
+    previewButton.addEventListener('click', function () {
+      previewButton.classList.add('opacity-60');
+      previewButton.textContent = '生成中...';
+      status.classList.remove('hidden');
+    });
+  }());
+</script>
 {% endblock %}

@@ -1,0 +1,1 @@
+"""AI integration boundary for hoiku-plan-writer."""

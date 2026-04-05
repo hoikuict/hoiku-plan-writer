@@ -39,6 +39,7 @@ class NurseryProfileRecord(SQLModel, table=True):
     missing_input_policy: str = "未入力は要確認として扱う。"
     confirmation_marker: str = "要確認"
     evidence_tag_policy: str = "根拠タグを表示する。"
+    enabled_field_keys_json: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
@@ -78,6 +79,7 @@ class PlanDocumentRecord(SQLModel, table=True):
     def status_label(self) -> str:
         return {
             "draft": "下書き",
+            "submitted": "送信済み",
             "approved": "承認済み",
             "returned": "差戻し",
         }.get(self.status, self.status)
@@ -120,7 +122,9 @@ class ApprovalLogRecord(SQLModel, table=True):
     def action_label(self) -> str:
         return {
             "created": "作成",
+            "saved_draft": "下書き保存",
+            "submitted": "送信",
+            "resubmitted": "再送信",
             "approved": "承認",
             "returned": "差戻し",
         }.get(self.action, self.action)
-

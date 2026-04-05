@@ -11,7 +11,7 @@
         <tr>
           <th class="px-4 py-3 font-medium">文書</th>
           <th class="px-4 py-3 font-medium">種別</th>
-          <th class="px-4 py-3 font-medium">クラス参照</th>
+          <th class="px-4 py-3 font-medium">クラス</th>
           <th class="px-4 py-3 font-medium">状態</th>
           <th class="px-4 py-3 font-medium">更新</th>
         </tr>
@@ -24,9 +24,9 @@
             <p class="mt-1 text-xs text-stone-500">actor_ref: {{ document.actor_ref }}</p>
           </td>
           <td class="px-4 py-3 text-stone-600">{{ document.document_type_label }}</td>
-          <td class="px-4 py-3 text-stone-600">{{ document.classroom_ref }}</td>
+          <td class="px-4 py-3 text-stone-600">{{ document.input_snapshot_json.get('class_name', '未設定') if document.input_snapshot_json else '未設定' }}</td>
           <td class="px-4 py-3">
-            <span class="rounded-full px-3 py-1 text-xs font-semibold {% if document.status == 'approved' %}bg-emerald-100 text-emerald-700{% elif document.status == 'returned' %}bg-amber-100 text-amber-700{% else %}bg-stone-100 text-stone-700{% endif %}">{{ document.status_label }}</span>
+            <span class="rounded-full px-3 py-1 text-xs font-semibold {% if document.status == 'approved' %}bg-emerald-100 text-emerald-700{% elif document.status == 'returned' %}bg-amber-100 text-amber-700{% elif document.status == 'submitted' %}bg-sky-100 text-sky-700{% else %}bg-stone-100 text-stone-700{% endif %}">{{ document.status_label }}</span>
           </td>
           <td class="px-4 py-3 text-stone-500">{{ document.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
         </tr>

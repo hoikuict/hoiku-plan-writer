@@ -1,4 +1,4 @@
-﻿{% if error_message %}
+{% if error_message %}
 <div class="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-4 text-sm text-amber-800">
   {{ error_message }}
 </div>
@@ -7,6 +7,9 @@
   <div class="rounded-2xl bg-white p-4 ring-1 ring-stone-200">
     <p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Preview</p>
     <h3 class="mt-2 text-lg font-semibold text-stone-900">{{ plan.title }}</h3>
+    {% if generation_note %}
+    <p class="mt-2 text-sm text-stone-500">{{ generation_note }}</p>
+    {% endif %}
     {% if plan.missing_inputs %}
     <p class="mt-2 text-sm text-amber-700">要確認: {{ plan.missing_inputs | join('、') }}</p>
     {% endif %}

@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from ...auth import StaffRole, clear_staff_session, get_current_staff_user, set_staff_session
@@ -33,6 +33,7 @@ def staff_login_page(
 
 @router.post("/login")
 def staff_login(
+    request: Request,
     role: str = Form(StaffRole.CAN_EDIT.value),
     actor_ref: str = Form("staff:demo-editor"),
     nursery_ref: str = Form("nursery:demo"),
@@ -54,6 +55,7 @@ def staff_login(
         nursery_ref=nursery_ref.strip() or "nursery:demo",
         classroom_refs=classroom_refs,
         name=name.strip() or "モック職員",
+        request=request,
     )
     return response
 

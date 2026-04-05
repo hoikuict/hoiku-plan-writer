@@ -14,6 +14,7 @@ from ..domain.models import (
     SectionBlock,
     SourceRef,
 )
+from ..domain.profile_fields import PROFILE_DEFAULT_ENABLED_KEYS
 from ..persistence.models import ApprovalLogRecord, NurseryProfileRecord, PlanBlockRecord, PlanDocumentRecord
 from ..time_utils import utc_now
 
@@ -24,6 +25,15 @@ def list_profile_versions(session: Session, nursery_ref: str) -> list[NurseryPro
         .where(NurseryProfileRecord.nursery_ref == nursery_ref)
         .order_by(NurseryProfileRecord.version.desc(), NurseryProfileRecord.id.desc())
     ).all()
+
+
+def get_profile_record(session: Session, profile_id: int, nursery_ref: str) -> NurseryProfileRecord | None:
+    return session.exec(
+        select(NurseryProfileRecord).where(
+            NurseryProfileRecord.id == profile_id,
+            NurseryProfileRecord.nursery_ref == nursery_ref,
+        )
+    ).first()
 
 
 def get_active_profile_record(session: Session, nursery_ref: str) -> NurseryProfileRecord | None:
@@ -83,11 +93,35 @@ def save_profile(
         missing_input_policy=profile.missing_input_policy,
         confirmation_marker=profile.confirmation_marker,
         evidence_tag_policy=profile.evidence_tag_policy,
+        enabled_field_keys_json=list(profile.enabled_field_keys),
     )
     session.add(record)
     session.commit()
     session.refresh(record)
     return record
+
+
+def activate_profile_version(
+    session: Session,
+    *,
+    profile_id: int,
+    nursery_ref: str,
+) -> NurseryProfileRecord | None:
+    target = get_profile_record(session, profile_id, nursery_ref)
+    if not target:
+        return None
+
+    now = utc_now()
+    for existing in list_profile_versions(session, nursery_ref):
+        should_be_active = existing.id == target.id
+        if existing.approved != should_be_active:
+            existing.approved = should_be_active
+            existing.updated_at = now
+            session.add(existing)
+
+    session.commit()
+    session.refresh(target)
+    return target
 
 
 def profile_record_to_domain(record: NurseryProfileRecord) -> NurseryProfile:
@@ -117,6 +151,7 @@ def profile_record_to_domain(record: NurseryProfileRecord) -> NurseryProfile:
         evidence_tag_policy=record.evidence_tag_policy,
         approved=record.approved,
         version=record.version,
+        enabled_field_keys=_profile_enabled_keys(record),
     )
 
 
@@ -246,6 +281,70 @@ def document_record_to_domain(document: PlanDocumentRecord) -> GeneratedPlan:
     )
 
 
+def update_document_content(
+    session: Session,
+    *,
+    document: PlanDocumentRecord,
+    title: str,
+    block_bodies_by_id: dict[int, str],
+    actor_ref: str,
+    role: str,
+    action: str,
+    comment: str,
+) -> tuple[PlanDocumentRecord, str]:
+    now = utc_now()
+    previous_status = document.status
+    had_prior_submission = any(log.action in {"submitted", "resubmitted"} for log in document.approval_logs)
+
+    document.title = title.strip() or document.title
+    document.updated_at = now
+    document.approved_at = None
+    document.approved_by_actor_ref = None
+
+    if action == "submit":
+        document.status = DocumentStatus.SUBMITTED.value
+        log_action = (
+            "resubmitted"
+            if previous_status in {DocumentStatus.SUBMITTED.value, DocumentStatus.RETURNED.value} or had_prior_submission
+            else "submitted"
+        )
+        default_comment = "修正内容を送信しました。" if log_action == "resubmitted" else "文書を送信しました。"
+    else:
+        document.status = DocumentStatus.DRAFT.value
+        log_action = "saved_draft"
+        default_comment = "下書きを保存しました。"
+
+    session.add(document)
+
+    any_needs_confirmation = False
+    for block in sorted(document.blocks, key=lambda item: (item.sort_order, item.id or 0)):
+        new_body = block_bodies_by_id.get(block.id, block.body)
+        if new_body != block.body:
+            block.body = new_body
+            block.updated_at = now
+            if block.needs_confirmation:
+                block.needs_confirmation = False
+                block.editor_note = _append_editor_note(block.editor_note, "手動編集で確認済み")
+        any_needs_confirmation = any_needs_confirmation or block.needs_confirmation
+        session.add(block)
+
+    if not any_needs_confirmation:
+        document.missing_inputs_json = []
+        session.add(document)
+
+    session.add(
+        ApprovalLogRecord(
+            document_id=document.id,
+            action=log_action,
+            actor_ref=actor_ref,
+            role=role,
+            comment=comment.strip() or default_comment,
+        )
+    )
+    session.commit()
+    return get_document(session, document.id, nursery_ref=document.nursery_ref), log_action
+
+
 def update_document_status(
     session: Session,
     *,
@@ -260,6 +359,9 @@ def update_document_status(
     if status == DocumentStatus.APPROVED:
         document.approved_at = utc_now()
         document.approved_by_actor_ref = actor_ref
+    else:
+        document.approved_at = None
+        document.approved_by_actor_ref = None
 
     action = "approved" if status == DocumentStatus.APPROVED else "returned"
     session.add(document)
@@ -308,3 +410,18 @@ def _dict_to_source_ref(payload: dict[str, Any]) -> SourceRef:
         ref=str(payload.get("ref", "")),
         label=str(payload.get("label", "")),
     )
+
+
+def _profile_enabled_keys(record: NurseryProfileRecord) -> tuple[str, ...]:
+    stored_keys = record.enabled_field_keys_json or []
+    if stored_keys:
+        return tuple(str(item) for item in stored_keys)
+    return PROFILE_DEFAULT_ENABLED_KEYS
+
+
+def _append_editor_note(existing_note: str | None, suffix: str) -> str:
+    if not existing_note:
+        return suffix
+    if suffix in existing_note:
+        return existing_note
+    return f"{existing_note} / {suffix}"

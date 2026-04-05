@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import date
 
@@ -14,11 +14,12 @@ from ...persistence.repositories import (
     get_active_profile_record,
     get_document,
     list_documents,
+    list_profile_versions,
     profile_record_to_domain,
 )
 from ...services.generators import generate_monthly_plan
 from ..forms import MonthlyPlanFormData, monthly_plan_form_data
-from ..templating import render_template
+from ..templating import is_htmx_request, render_template
 
 router = APIRouter(prefix="/monthly-plans", tags=["monthly-plans"])
 TERM_OPTIONS = [{"value": key, "label": label} for key, label in ANNUAL_TERM_ORDER]
@@ -47,6 +48,33 @@ def _annual_plan_options(session, current_user):
     )
 
 
+def _render_form(
+    request: Request,
+    *,
+    current_user,
+    form_data: MonthlyPlanFormData,
+    active_profile,
+    latest_profile_version,
+    annual_plan_options,
+    form_error: str,
+    preview_plan=None,
+    preview_error_message: str = "",
+):
+    return render_template(
+        request,
+        "monthly_plans/form.html",
+        current_user=current_user,
+        form_data=form_data,
+        active_profile=active_profile,
+        latest_profile_version=latest_profile_version,
+        annual_plan_options=annual_plan_options,
+        term_options=TERM_OPTIONS,
+        form_error=form_error,
+        preview_plan=preview_plan,
+        preview_error_message=preview_error_message,
+    )
+
+
 def _preview_context(request: Request, current_user, plan=None, error_message: str = ""):
     return render_template(
         request,
@@ -57,6 +85,42 @@ def _preview_context(request: Request, current_user, plan=None, error_message: s
     )
 
 
+def _render_preview_response(
+    request: Request,
+    *,
+    current_user,
+    form_data: MonthlyPlanFormData,
+    active_profile,
+    latest_profile_version,
+    annual_plan_options,
+    plan=None,
+    error_message: str = "",
+):
+    if is_htmx_request(request):
+        return _preview_context(request, current_user, plan=plan, error_message=error_message)
+    return _render_form(
+        request,
+        current_user=current_user,
+        form_data=form_data,
+        active_profile=active_profile,
+        latest_profile_version=latest_profile_version,
+        annual_plan_options=annual_plan_options,
+        form_error="",
+        preview_plan=plan,
+        preview_error_message=error_message,
+    )
+
+
+def _missing_profile_message(profile_versions) -> str:
+    if profile_versions:
+        latest_profile = profile_versions[0]
+        return (
+            f"園プロフィール v{latest_profile.version} / {latest_profile.nursery_name} は保存済みですが、"
+            "まだ有効化されていません。月案には有効版のみ反映されます。管理者で有効化してください。"
+        )
+    return "先に有効な園プロファイルを登録してください。"
+
+
 @router.get("/new", response_class=HTMLResponse)
 def new_monthly_plan_form(
     request: Request,
@@ -64,14 +128,16 @@ def new_monthly_plan_form(
     current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
-    return render_template(
+    active_profile = get_active_profile_record(session, current_user.nursery_ref)
+    profile_versions = list_profile_versions(session, current_user.nursery_ref)
+    latest_profile_version = profile_versions[0] if profile_versions else None
+    return _render_form(
         request,
-        "monthly_plans/form.html",
         current_user=current_user,
         form_data=_default_form(current_user),
-        active_profile=get_active_profile_record(session, current_user.nursery_ref),
+        active_profile=active_profile,
+        latest_profile_version=latest_profile_version,
         annual_plan_options=_annual_plan_options(session, current_user),
-        term_options=TERM_OPTIONS,
         form_error="",
     )
 
@@ -85,11 +151,30 @@ def preview_monthly_plan(
 ):
     require_can_edit(current_user)
     require_classroom_access(current_user, form_data.classroom_ref)
+    annual_plan_options = _annual_plan_options(session, current_user)
     profile_record = get_active_profile_record(session, current_user.nursery_ref)
     if not profile_record:
-        return _preview_context(request, current_user, error_message="先に有効な園プロファイルを登録してください。")
+        profile_versions = list_profile_versions(session, current_user.nursery_ref)
+        latest_profile_version = profile_versions[0] if profile_versions else None
+        return _render_preview_response(
+            request,
+            current_user=current_user,
+            form_data=form_data,
+            active_profile=None,
+            latest_profile_version=latest_profile_version,
+            annual_plan_options=annual_plan_options,
+            error_message=_missing_profile_message(profile_versions),
+        )
     if form_data.related_annual_plan_id is None:
-        return _preview_context(request, current_user, error_message="関連する年間指導計画を選択してください。")
+        return _render_preview_response(
+            request,
+            current_user=current_user,
+            form_data=form_data,
+            active_profile=profile_record,
+            latest_profile_version=profile_record,
+            annual_plan_options=annual_plan_options,
+            error_message="関連する年間指導計画を選択してください。",
+        )
 
     annual_document = get_document(
         session,
@@ -97,7 +182,15 @@ def preview_monthly_plan(
         nursery_ref=current_user.nursery_ref,
     )
     if not annual_document:
-        return _preview_context(request, current_user, error_message="関連する年間指導計画が見つかりません。")
+        return _render_preview_response(
+            request,
+            current_user=current_user,
+            form_data=form_data,
+            active_profile=profile_record,
+            latest_profile_version=profile_record,
+            annual_plan_options=annual_plan_options,
+            error_message="関連する年間指導計画が見つかりません。",
+        )
     require_classroom_access(current_user, annual_document.classroom_ref)
 
     plan = generate_monthly_plan(
@@ -105,7 +198,15 @@ def preview_monthly_plan(
         annual_plan=document_record_to_domain(annual_document),
         plan_input=form_data.to_domain_input(),
     )
-    return _preview_context(request, current_user, plan=plan)
+    return _render_preview_response(
+        request,
+        current_user=current_user,
+        form_data=form_data,
+        active_profile=profile_record,
+        latest_profile_version=profile_record,
+        annual_plan_options=annual_plan_options,
+        plan=plan,
+    )
 
 
 @router.post("/")
@@ -118,28 +219,28 @@ def create_monthly_plan(
     require_can_edit(current_user)
     require_classroom_access(current_user, form_data.classroom_ref)
     profile_record = get_active_profile_record(session, current_user.nursery_ref)
+    profile_versions = list_profile_versions(session, current_user.nursery_ref)
+    latest_profile_version = profile_versions[0] if profile_versions else None
     annual_plan_options = _annual_plan_options(session, current_user)
 
     if not profile_record:
-        return render_template(
+        return _render_form(
             request,
-            "monthly_plans/form.html",
             current_user=current_user,
             form_data=form_data,
             active_profile=None,
+            latest_profile_version=latest_profile_version,
             annual_plan_options=annual_plan_options,
-            term_options=TERM_OPTIONS,
-            form_error="有効な園プロファイルが必要です。",
+            form_error=_missing_profile_message(profile_versions),
         )
     if form_data.related_annual_plan_id is None:
-        return render_template(
+        return _render_form(
             request,
-            "monthly_plans/form.html",
             current_user=current_user,
             form_data=form_data,
             active_profile=profile_record,
+            latest_profile_version=latest_profile_version,
             annual_plan_options=annual_plan_options,
-            term_options=TERM_OPTIONS,
             form_error="関連する年間指導計画を選択してください。",
         )
 
@@ -149,14 +250,13 @@ def create_monthly_plan(
         nursery_ref=current_user.nursery_ref,
     )
     if not annual_document:
-        return render_template(
+        return _render_form(
             request,
-            "monthly_plans/form.html",
             current_user=current_user,
             form_data=form_data,
             active_profile=profile_record,
+            latest_profile_version=latest_profile_version,
             annual_plan_options=annual_plan_options,
-            term_options=TERM_OPTIONS,
             form_error="関連する年間指導計画が見つかりません。",
         )
     require_classroom_access(current_user, annual_document.classroom_ref)
