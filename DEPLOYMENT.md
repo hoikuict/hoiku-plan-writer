@@ -25,11 +25,16 @@ This repository supports a public demo mode for Dockge deployments.
 2. In Dockge, create a stack from this repository or paste in `compose.yaml`.
 3. Copy `.env.example` values into the stack environment editor.
 4. Set `CLOUDFLARE_TUNNEL_TOKEN` if you want the stack to publish itself through Cloudflare Tunnel.
-5. Start the stack and confirm the app responds on port `8000`.
+5. Start the stack and confirm the app responds on the host port configured by `HOST_PORT`.
 
 ## Cloudflare
 
 If you already run `cloudflared` elsewhere, you can remove the bundled `cloudflared` service and point your existing tunnel at `http://app:8000` on the same Docker network or at the host port you exposed from Dockge.
+
+The `app` container always listens on port `8000` internally. Only the host-side published port should vary. For example:
+
+- `HOST_PORT=8010`
+- Cloudflare Service URL: `http://app:8000`
 
 If you use the bundled `cloudflared` service:
 
