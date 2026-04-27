@@ -28,6 +28,19 @@ class AnnualPlanPreviewResult:
         return self.generation_mode == "llm"
 
 
+@dataclass(frozen=True, slots=True)
+class MonthlyPlanPreviewResult:
+    plan: GeneratedPlan
+    generation_mode: str
+    provider_name: str
+    model_name: str = ""
+    note: str = ""
+
+    @property
+    def is_llm(self) -> bool:
+        return self.generation_mode == "llm"
+
+
 
 def annual_plan_json_schema(expected_section_keys: list[str]) -> dict[str, object]:
     return {
@@ -105,6 +118,15 @@ def annual_plan_block_json_schema() -> dict[str, object]:
     }
 
 
+def block_response_format(name: str = "plan_block_preview") -> dict[str, object]:
+    return {
+        "type": "json_schema",
+        "name": name,
+        "strict": True,
+        "schema": annual_plan_block_json_schema(),
+    }
+
+
 
 def annual_plan_response_format(expected_section_keys: list[str]) -> dict[str, object]:
     return {
@@ -174,12 +196,16 @@ def annual_preview_payload_to_plan(payload: dict[str, Any], *, fallback_plan: Ge
 
 
 def annual_preview_payload_to_block(payload: dict[str, Any], *, fallback_block: SectionBlock) -> SectionBlock:
+    return block_preview_payload_to_block(payload, fallback_block=fallback_block)
+
+
+def block_preview_payload_to_block(payload: dict[str, Any], *, fallback_block: SectionBlock) -> SectionBlock:
     if not isinstance(payload, dict):
-        raise ValueError("annual block payload must be an object")
+        raise ValueError("block payload must be an object")
 
     body = str(payload.get("body", "")).strip()
     if not body:
-        raise ValueError(f"annual block '{fallback_block.section_key}' must have a body")
+        raise ValueError(f"block '{fallback_block.section_key}' must have a body")
 
     needs_confirmation = payload.get("needs_confirmation")
     if not isinstance(needs_confirmation, bool):

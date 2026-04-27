@@ -8,11 +8,6 @@
       <h1 class="mt-2 text-3xl font-bold text-stone-900">月案を作成</h1>
       {% if active_profile %}
       <p class="mt-2 text-sm text-stone-600">有効な園プロファイル: v{{ active_profile.version }} / {{ active_profile.nursery_name }}</p>
-      {% elif latest_profile_version %}
-      <div class="mt-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        保存済みの園プロフィール: v{{ latest_profile_version.version }} / {{ latest_profile_version.nursery_name }}
-        ただし、まだ下書きのため月案には反映されません。管理者で有効化してください。
-      </div>
       {% else %}
       <p class="mt-2 text-sm text-amber-700">有効な園プロファイルがまだありません。先に園プロファイルを有効化してください。</p>
       {% endif %}
@@ -20,6 +15,29 @@
       <div class="mt-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">{{ form_error }}</div>
       {% endif %}
     </div>
+
+    <section class="rounded-2xl bg-stone-50 px-4 py-4 text-sm text-stone-700">
+      <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-start">
+        <div>
+          <p class="font-semibold text-stone-900">AIプレビュー</p>
+          <p class="mt-1 text-sm text-stone-600">{{ llm_preview_note }}</p>
+          <p class="mt-2 text-xs text-stone-500">年案の該当期と月案入力を参照して、LLMで月案の文案を整えます。</p>
+        </div>
+        <div class="space-y-3">
+          <label class="block text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">モデル
+            <select name="ai_model" {% if not llm_preview_available %}disabled{% endif %} class="mt-2 w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 disabled:opacity-60">
+              {% for model_name in ai_model_options %}
+              <option value="{{ model_name }}" {% if model_name == selected_ai_model %}selected{% endif %}>{{ model_name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-medium text-stone-700 ring-1 ring-stone-200 {% if not llm_preview_available %}opacity-60{% endif %}">
+            <input type="checkbox" name="use_llm_preview" {% if llm_preview_checked %}checked{% endif %} {% if not llm_preview_available %}disabled{% endif %} class="rounded border-stone-300 text-emerald-600 focus:ring-emerald-500">
+            LLMプレビューを使う
+          </label>
+        </div>
+      </div>
+    </section>
 
     {% if current_user.classroom_refs | length == 1 %}
     <input type="hidden" name="classroom_ref" value="{{ form_data.classroom_ref }}">
@@ -62,22 +80,21 @@
       <label class="block text-sm font-medium text-stone-700">前月の反省<textarea name="previous_reflection" rows="4" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" required>{{ form_data.previous_reflection }}</textarea></label>
       <label class="block text-sm font-medium text-stone-700">今の子どもの姿<textarea name="current_children_snapshot" rows="4" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" required>{{ form_data.current_children_snapshot }}</textarea></label>
       <label class="block text-sm font-medium text-stone-700">興味のある遊び・生活<textarea name="play_interests" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.play_interests }}</textarea></label>
-      <label class="block text-sm font-medium text-stone-700">季節・家庭文脈<textarea name="seasonal_context" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.seasonal_context }}</textarea></label>
+      <label class="block text-sm font-medium text-stone-700">季節の文脈<textarea name="seasonal_context" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.seasonal_context }}</textarea></label>
       <label class="block text-sm font-medium text-stone-700">家庭の状況<textarea name="family_context" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.family_context }}</textarea></label>
       <label class="block text-sm font-medium text-stone-700">クラス全体の留意事項<textarea name="class_notes" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.class_notes }}</textarea></label>
     </section>
 
+    {% if preview_plan_json %}
+    <textarea name="preview_plan_json" class="hidden">{{ preview_plan_json }}</textarea>
+    {% endif %}
+
     <div class="flex flex-wrap gap-3 items-center">
-      <button
-        id="monthly-preview-button"
-        type="submit"
-        formaction="/monthly-plans/preview"
-        formmethod="post"
-        formnovalidate
-        class="rounded-xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
-      >プレビュー</button>
-      <button type="submit" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">下書きを保存</button>
-      <a href="/nursery-profile/" class="rounded-xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">園プロフィールを開く</a>
+      <button id="monthly-preview-button" type="submit" formaction="/monthly-plans/preview" formmethod="post" formnovalidate class="rounded-xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">プレビュー</button>
+      {% if preview_plan_json %}
+      <button type="submit" name="action" value="adopt_preview" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">このプレビューで下書き保存</button>
+      {% endif %}
+      <button type="submit" name="action" value="save_rule_based" class="rounded-xl border border-emerald-600 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50">既定案で下書き保存</button>
       <p id="monthly-preview-status" class="hidden text-sm text-stone-500">プレビューを生成中です。しばらくお待ちください。</p>
     </div>
   </form>
@@ -88,7 +105,7 @@
       <p class="mt-2 text-sm text-stone-600">年間計画の該当期を参照して、サーバ側で月案の下書きを構成します。</p>
     </div>
     <div id="preview-panel">
-      {% with plan=preview_plan, error_message=preview_error_message, generation_note="" %}
+      {% with plan=preview_plan, error_message=preview_error_message, generation_note=preview_generation_note %}
       {% include "documents/_preview.html" %}
       {% endwith %}
     </div>
@@ -96,10 +113,9 @@
 </div>
 <script>
   (function () {
-    const form = document.getElementById('monthly-plan-form');
     const previewButton = document.getElementById('monthly-preview-button');
     const status = document.getElementById('monthly-preview-status');
-    if (!form || !previewButton || !status) {
+    if (!previewButton || !status) {
       return;
     }
     previewButton.addEventListener('click', function () {

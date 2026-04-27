@@ -6,7 +6,6 @@ from datetime import date
 from fastapi import Form
 
 from ..domain.models import AnnualPlanInput, MonthlyPlanInput, NurseryProfile
-from ..domain.profile_fields import PROFILE_DEFAULT_ENABLED_KEYS, normalize_enabled_field_keys
 
 
 @dataclass(slots=True)
@@ -20,6 +19,9 @@ class ProfileFormData:
     child_view: str
     play_view: str
     support_policy: str
+    local_context: str = ""
+    curriculum_focus: str = ""
+    assessment_policy: str = ""
     indoor_environment: str = ""
     outdoor_environment: str = ""
     corner_play: str = ""
@@ -28,28 +30,30 @@ class ProfileFormData:
     local_collaboration_policy: str = ""
     health_and_safety_policy: str = ""
     inclusive_policy: str = ""
+    daily_rhythm: str = ""
     preferred_expressions: str = ""
     avoid_expressions: str = ""
     sentence_tone: str = ""
+    document_format_notes: str = ""
     missing_input_policy: str = "未入力は要確認として扱う。"
     confirmation_marker: str = "要確認"
     evidence_tag_policy: str = "根拠タグを表示する。"
-    enabled_field_keys: tuple[str, ...] = PROFILE_DEFAULT_ENABLED_KEYS
-
-    def __post_init__(self) -> None:
-        self.enabled_field_keys = normalize_enabled_field_keys(self.enabled_field_keys)
+    privacy_policy: str = "個人名、診断名、健康詳細、家庭の詳細事情は入力・出力に含めない。"
 
     def to_domain(self, *, approved: bool = False) -> NurseryProfile:
         return NurseryProfile(
             nursery_name=self.nursery_name,
             target_age_group=self.target_age_group,
             class_configuration=self.class_configuration,
+            local_context=self.local_context,
             philosophy=self.philosophy,
             childcare_goal=self.childcare_goal,
             desired_child_image=self.desired_child_image,
             child_view=self.child_view,
             play_view=self.play_view,
             support_policy=self.support_policy,
+            curriculum_focus=self.curriculum_focus,
+            assessment_policy=self.assessment_policy,
             indoor_environment=self.indoor_environment,
             outdoor_environment=self.outdoor_environment,
             corner_play=self.corner_play,
@@ -58,14 +62,16 @@ class ProfileFormData:
             local_collaboration_policy=self.local_collaboration_policy,
             health_and_safety_policy=self.health_and_safety_policy,
             inclusive_policy=self.inclusive_policy,
+            daily_rhythm=self.daily_rhythm,
             preferred_expressions=self.preferred_expressions,
             avoid_expressions=self.avoid_expressions,
             sentence_tone=self.sentence_tone,
+            document_format_notes=self.document_format_notes,
             missing_input_policy=self.missing_input_policy,
             confirmation_marker=self.confirmation_marker,
             evidence_tag_policy=self.evidence_tag_policy,
+            privacy_policy=self.privacy_policy,
             approved=approved,
-            enabled_field_keys=self.enabled_field_keys,
         )
 
     def as_snapshot(self) -> dict[str, object]:
@@ -141,12 +147,15 @@ def profile_form_data(
     nursery_name: str = Form(""),
     target_age_group: str = Form(""),
     class_configuration: str = Form(""),
+    local_context: str = Form(""),
     philosophy: str = Form(""),
     childcare_goal: str = Form(""),
     desired_child_image: str = Form(""),
     child_view: str = Form(""),
     play_view: str = Form(""),
     support_policy: str = Form(""),
+    curriculum_focus: str = Form(""),
+    assessment_policy: str = Form(""),
     indoor_environment: str = Form(""),
     outdoor_environment: str = Form(""),
     corner_play: str = Form(""),
@@ -155,24 +164,29 @@ def profile_form_data(
     local_collaboration_policy: str = Form(""),
     health_and_safety_policy: str = Form(""),
     inclusive_policy: str = Form(""),
+    daily_rhythm: str = Form(""),
     preferred_expressions: str = Form(""),
     avoid_expressions: str = Form(""),
     sentence_tone: str = Form(""),
+    document_format_notes: str = Form(""),
     missing_input_policy: str = Form("未入力は要確認として扱う。"),
     confirmation_marker: str = Form("要確認"),
     evidence_tag_policy: str = Form("根拠タグを表示する。"),
-    enabled_field_keys: list[str] | None = Form(None),
+    privacy_policy: str = Form("個人名、診断名、健康詳細、家庭の詳細事情は入力・出力に含めない。"),
 ) -> ProfileFormData:
     return ProfileFormData(
         nursery_name=nursery_name,
         target_age_group=target_age_group,
         class_configuration=class_configuration,
+        local_context=local_context,
         philosophy=philosophy,
         childcare_goal=childcare_goal,
         desired_child_image=desired_child_image,
         child_view=child_view,
         play_view=play_view,
         support_policy=support_policy,
+        curriculum_focus=curriculum_focus,
+        assessment_policy=assessment_policy,
         indoor_environment=indoor_environment,
         outdoor_environment=outdoor_environment,
         corner_play=corner_play,
@@ -181,13 +195,15 @@ def profile_form_data(
         local_collaboration_policy=local_collaboration_policy,
         health_and_safety_policy=health_and_safety_policy,
         inclusive_policy=inclusive_policy,
+        daily_rhythm=daily_rhythm,
         preferred_expressions=preferred_expressions,
         avoid_expressions=avoid_expressions,
         sentence_tone=sentence_tone,
+        document_format_notes=document_format_notes,
         missing_input_policy=missing_input_policy,
         confirmation_marker=confirmation_marker,
         evidence_tag_policy=evidence_tag_policy,
-        enabled_field_keys=tuple(enabled_field_keys or ()),
+        privacy_policy=privacy_policy,
     )
 
 

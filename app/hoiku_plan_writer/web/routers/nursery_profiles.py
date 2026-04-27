@@ -1,58 +1,46 @@
 ﻿from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from ...auth import get_current_staff_user, require_admin, require_can_edit
 from ...db import get_session
-from ...domain.profile_fields import PROFILE_DEFAULT_ENABLED_KEYS, PROFILE_FIELD_SECTIONS
+from ...domain.profile_fields import review_profile_completeness
 from ...persistence.models import NurseryProfileRecord
-from ...persistence.repositories import (
-    activate_profile_version,
-    get_active_profile_record,
-    list_profile_versions,
-    save_profile,
-)
+from ...persistence.repositories import get_active_profile_record, list_profile_versions, save_profile
 from ..forms import ProfileFormData, profile_form_data
 from ..templating import render_template
 
 router = APIRouter(prefix="/nursery-profile", tags=["nursery-profile"])
 
 
-def _enabled_keys_from_record(record: NurseryProfileRecord | None) -> tuple[str, ...]:
-    if not record:
-        return PROFILE_DEFAULT_ENABLED_KEYS
-    stored_keys = record.enabled_field_keys_json or []
-    if stored_keys:
-        return tuple(str(item) for item in stored_keys)
-    return PROFILE_DEFAULT_ENABLED_KEYS
-
-
 def _form_from_record(record: NurseryProfileRecord | None) -> ProfileFormData:
-    enabled_field_keys = _enabled_keys_from_record(record)
     if not record:
         return ProfileFormData(
             nursery_name="",
             target_age_group="3〜5歳児",
             class_configuration="",
+            local_context="",
             philosophy="",
             childcare_goal="",
             desired_child_image="",
             child_view="",
             play_view="",
             support_policy="",
-            enabled_field_keys=enabled_field_keys,
         )
     return ProfileFormData(
         nursery_name=record.nursery_name,
         target_age_group=record.target_age_group,
         class_configuration=record.class_configuration,
+        local_context=record.local_context,
         philosophy=record.philosophy,
         childcare_goal=record.childcare_goal,
         desired_child_image=record.desired_child_image,
         child_view=record.child_view,
         play_view=record.play_view,
         support_policy=record.support_policy,
+        curriculum_focus=record.curriculum_focus,
+        assessment_policy=record.assessment_policy,
         indoor_environment=record.indoor_environment,
         outdoor_environment=record.outdoor_environment,
         corner_play=record.corner_play,
@@ -61,13 +49,40 @@ def _form_from_record(record: NurseryProfileRecord | None) -> ProfileFormData:
         local_collaboration_policy=record.local_collaboration_policy,
         health_and_safety_policy=record.health_and_safety_policy,
         inclusive_policy=record.inclusive_policy,
+        daily_rhythm=record.daily_rhythm,
         preferred_expressions=record.preferred_expressions,
         avoid_expressions=record.avoid_expressions,
         sentence_tone=record.sentence_tone,
+        document_format_notes=record.document_format_notes,
         missing_input_policy=record.missing_input_policy,
         confirmation_marker=record.confirmation_marker,
         evidence_tag_policy=record.evidence_tag_policy,
-        enabled_field_keys=enabled_field_keys,
+        privacy_policy=record.privacy_policy,
+    )
+
+
+def _render_profile_form(
+    request: Request,
+    *,
+    current_user,
+    session,
+    form_data: ProfileFormData,
+    active_profile: NurseryProfileRecord | None,
+    saved: bool = False,
+    reviewed: bool = False,
+    form_error: str = "",
+):
+    return render_template(
+        request,
+        "nursery_profiles/form.html",
+        current_user=current_user,
+        form_data=form_data,
+        active_profile=active_profile,
+        profile_versions=list_profile_versions(session, current_user.nursery_ref),
+        profile_review=review_profile_completeness(form_data.to_domain(approved=bool(active_profile and active_profile.approved))),
+        saved=saved,
+        reviewed=reviewed,
+        form_error=form_error,
     )
 
 
@@ -78,20 +93,13 @@ def nursery_profile_form(
     current_user=Depends(get_current_staff_user),
 ):
     active_profile = get_active_profile_record(session, current_user.nursery_ref)
-    profile_versions = list_profile_versions(session, current_user.nursery_ref)
-    form_record = active_profile or (profile_versions[0] if profile_versions else None)
-    form_data = _form_from_record(form_record)
-    return render_template(
+    return _render_profile_form(
         request,
-        "nursery_profiles/form.html",
         current_user=current_user,
-        form_data=form_data,
-        form_values=form_data.as_snapshot(),
+        session=session,
+        form_data=_form_from_record(active_profile),
         active_profile=active_profile,
-        profile_versions=profile_versions,
-        profile_field_sections=PROFILE_FIELD_SECTIONS,
         saved=request.query_params.get("saved") == "1",
-        activated=request.query_params.get("activated") == "1",
     )
 
 
@@ -104,32 +112,39 @@ def save_nursery_profile(
     current_user=Depends(get_current_staff_user),
 ):
     require_can_edit(current_user)
+    active_profile = get_active_profile_record(session, current_user.nursery_ref)
+    profile = form_data.to_domain(approved=action == "activate")
+    profile_review = review_profile_completeness(profile)
+
+    if action == "review":
+        return _render_profile_form(
+            request,
+            current_user=current_user,
+            session=session,
+            form_data=form_data,
+            active_profile=active_profile,
+            reviewed=True,
+        )
+
     approve = action == "activate"
     if approve:
         require_admin(current_user)
+        if not profile_review.can_activate:
+            missing_labels = "、".join(issue.label for issue in profile_review.missing_required)
+            return _render_profile_form(
+                request,
+                current_user=current_user,
+                session=session,
+                form_data=form_data,
+                active_profile=active_profile,
+                form_error=f"有効化には必須項目の入力が必要です: {missing_labels}",
+            )
 
     record = save_profile(
         session,
         nursery_ref=current_user.nursery_ref,
         actor_ref=current_user.actor_ref,
-        profile=form_data.to_domain(approved=approve),
+        profile=profile,
         approve=approve,
     )
     return RedirectResponse(url=f"/nursery-profile/?saved=1&version={record.version}", status_code=303)
-
-
-@router.post("/{profile_id}/activate")
-def activate_saved_profile(
-    profile_id: int,
-    session=Depends(get_session),
-    current_user=Depends(get_current_staff_user),
-):
-    require_admin(current_user)
-    record = activate_profile_version(
-        session,
-        profile_id=profile_id,
-        nursery_ref=current_user.nursery_ref,
-    )
-    if not record:
-        raise HTTPException(status_code=404, detail="園プロファイルが見つかりません")
-    return RedirectResponse(url=f"/nursery-profile/?activated=1&version={record.version}", status_code=303)

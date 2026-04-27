@@ -59,6 +59,9 @@ class NurseryProfile:
     child_view: str
     play_view: str
     support_policy: str
+    local_context: str = ""
+    curriculum_focus: str = ""
+    assessment_policy: str = ""
     indoor_environment: str = ""
     outdoor_environment: str = ""
     corner_play: str = ""
@@ -67,12 +70,15 @@ class NurseryProfile:
     local_collaboration_policy: str = ""
     health_and_safety_policy: str = ""
     inclusive_policy: str = ""
+    daily_rhythm: str = ""
     preferred_expressions: str = ""
     avoid_expressions: str = ""
     sentence_tone: str = ""
+    document_format_notes: str = ""
     missing_input_policy: str = "未入力は要確認として扱う。"
     confirmation_marker: str = "要確認"
     evidence_tag_policy: str = "根拠タグを表示する。"
+    privacy_policy: str = "個人名、診断名、健康詳細、家庭の詳細事情は入力・出力に含めない。"
     approved: bool = True
     version: int = 1
     enabled_field_keys: tuple[str, ...] = PROFILE_DEFAULT_ENABLED_KEYS
@@ -87,6 +93,14 @@ class NurseryProfile:
         if not self.is_field_enabled(field_key):
             return ""
         return str(getattr(self, field_key, "") or "")
+
+    @property
+    def profile_scope(self) -> str:
+        return self.target_age_group
+
+    @property
+    def default_class_configuration(self) -> str:
+        return self.class_configuration
 
 
 @dataclass(slots=True)

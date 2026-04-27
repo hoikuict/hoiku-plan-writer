@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from collections.abc import Generator
 
@@ -15,7 +15,8 @@ def create_engine_for_url(database_url: str) -> Engine:
 
 def create_db_and_tables(engine: Engine) -> None:
     SQLModel.metadata.create_all(engine)
-    _ensure_legacy_columns(engine)
+    if engine.dialect.name == "sqlite":
+        _ensure_sqlite_profile_columns(engine)
 
 
 def get_session(request: Request) -> Generator[Session, None, None]:
@@ -35,15 +36,24 @@ def get_session(request: Request) -> Generator[Session, None, None]:
         yield session
 
 
-def _ensure_legacy_columns(engine: Engine) -> None:
-    if not str(engine.url).startswith("sqlite"):
-        return
-
+def _ensure_sqlite_profile_columns(engine: Engine) -> None:
     inspector = inspect(engine)
-    if "nursery_profiles" not in inspector.get_table_names():
+    if not inspector.has_table("nursery_profiles"):
         return
 
-    nursery_profile_columns = {column["name"] for column in inspector.get_columns("nursery_profiles")}
-    if "enabled_field_keys_json" not in nursery_profile_columns:
-        with engine.begin() as connection:
-            connection.execute(text("ALTER TABLE nursery_profiles ADD COLUMN enabled_field_keys_json JSON"))
+    existing_columns = {column["name"] for column in inspector.get_columns("nursery_profiles")}
+    column_definitions = {
+        "local_context": "TEXT NOT NULL DEFAULT ''",
+        "curriculum_focus": "TEXT NOT NULL DEFAULT ''",
+        "assessment_policy": "TEXT NOT NULL DEFAULT ''",
+        "daily_rhythm": "TEXT NOT NULL DEFAULT ''",
+        "document_format_notes": "TEXT NOT NULL DEFAULT ''",
+        "privacy_policy": "TEXT NOT NULL DEFAULT '個人名、診断名、健康詳細、家庭の詳細事情は入力・出力に含めない。'",
+        "enabled_field_keys_json": "JSON",
+    }
+
+    with engine.begin() as connection:
+        for column_name, definition in column_definitions.items():
+            if column_name in existing_columns:
+                continue
+            connection.execute(text(f"ALTER TABLE nursery_profiles ADD COLUMN {column_name} {definition}"))

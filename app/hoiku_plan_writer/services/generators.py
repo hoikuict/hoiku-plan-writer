@@ -11,6 +11,7 @@ from ..domain.models import (
     SectionBlock,
     SourceRef,
 )
+from ..domain.profile_fields import review_profile_completeness
 from ..domain.section_catalog import ANNUAL_TERM_ORDER
 
 TERM_FOCUS = {
@@ -36,9 +37,10 @@ def generate_annual_plan(profile: NurseryProfile, plan_input: AnnualPlanInput) -
                 "\n".join(
                     [
                         f"{plan_input.school_year}年度の{plan_input.class_name}では、{plan_input.focus_growth} を年間の軸に据える。",
-                        f"園の保育目標「{profile.childcare_goal}」と、育てたい子ども像「{profile.desired_child_image}」を踏まえ、{plan_input.class_outlook}",
-                        f"理念「{profile.philosophy}」を基盤に、{profile.child_view} という子ども観と、{profile.play_view} という遊びの考え方を保育全体に通す。",
-                        _writing_style_sentence(profile),
+                        f"園としては「{profile.philosophy}」を基盤に、{plan_input.class_outlook}",
+                        f"全体的な計画との接続として、{profile.curriculum_focus or '園の年間方針と各期の育ちをつなげる。'}",
+                        f"文体は {profile.sentence_tone or '園の既定トーン'} を保ち、{profile.preferred_expressions or '園らしい表現'} を生かす。",
+                        f"書式は {profile.document_format_notes or '提出先の様式に合わせて整える。'}",
                     ]
                 ),
             ),
@@ -65,12 +67,13 @@ def generate_annual_plan(profile: NurseryProfile, plan_input: AnnualPlanInput) -
                         confirmation_note,
                         "\n".join(
                             [
-                                f"{term_label}は、{term_focus}",
-                                f"対象は {profile.target_age_group}、編成は {profile.class_configuration} を前提に、クラスの見通しとして {plan_input.class_outlook}",
-                                f"年間の大きなねらい「{plan_input.focus_growth}」につながる姿として、{profile.desired_child_image} を丁寧に支える。",
-                            ]
-                        ),
-                    ),
+                        f"{term_label}は、{term_focus}",
+                        f"クラスの見通しとして {plan_input.class_outlook}",
+                        f"プロフィール対象範囲は {profile.profile_scope}、標準クラス編成は {profile.default_class_configuration or '年度のフォーム入力を優先'} として扱う。",
+                        f"年間の大きなねらい「{plan_input.focus_growth}」につながる姿を丁寧に支える。",
+                    ]
+                ),
+            ),
                     evidence_tags=_evidence_tags(include_public_guidance=True),
                     source_refs=[
                         _profile_source_ref(profile),
@@ -88,13 +91,13 @@ def generate_annual_plan(profile: NurseryProfile, plan_input: AnnualPlanInput) -
                         confirmation_note,
                         "\n".join(
                             [
-                                f"室内では {_profile_text(profile, 'indoor_environment', '落ち着いて選べる環境')} を意識する。",
-                                f"戸外では {_profile_text(profile, 'outdoor_environment', '季節を感じる活動')} を取り入れる。",
-                                f"遊びの継続性を高めるため、{_profile_text(profile, 'corner_play', '継続的なコーナー設定')} を行う。",
-                                f"地域資源は { _profile_text(profile, 'community_resources', plan_input.community_resources or '地域の資源') } を見通しに入れて活用する。",
-                            ]
-                        ),
-                    ),
+                        f"室内では {_profile_text(profile, 'indoor_environment', '落ち着いて選べる環境')} を意識する。",
+                        f"戸外では {_profile_text(profile, 'outdoor_environment', '季節を感じる活動')} を取り入れる。",
+                        f"遊びの継続性を高めるため、{_profile_text(profile, 'corner_play', '継続的なコーナー設定')} を行う。",
+                        f"地域特性として {profile.local_context or plan_input.seasonal_context or '園周辺の生活環境'} を踏まえる。",
+                    ]
+                ),
+            ),
                     evidence_tags=_evidence_tags(include_public_guidance=False),
                     source_refs=[
                         _profile_source_ref(profile),
@@ -111,11 +114,11 @@ def generate_annual_plan(profile: NurseryProfile, plan_input: AnnualPlanInput) -
                         confirmation_note,
                         "\n".join(
                             [
-                                f"{profile.support_policy}",
-                                f"子ども観として {profile.child_view} を踏まえ、遊びの中で {profile.play_view} が続くように関わる。",
-                                f"特に {plan_input.care_points or '対話と安全の両立'} を意識し、必要に応じて {_profile_text(profile, 'health_and_safety_policy', '安心して活動できる流れ')} を整える。",
-                                f"また、{_profile_text(profile, 'inclusive_policy', '違いを受け止め合える関わり')} を意識して、一人ひとりの参加の仕方を支える。",
-                            ]
+                        f"{_profile_text(profile, 'support_policy', '必要な援助を行う。')}",
+                        f"子ども観として {profile.child_view or '一人ひとりの思いを丁寧に捉える'} を確認する。",
+                        f"特に {plan_input.care_points or '対話と安全の両立'} を意識し、子ども同士の関わりが続くよう援助する。",
+                        f"必要に応じて {profile.health_and_safety_policy or '安心して活動できる流れ'} を整える。",
+                    ]
                         ),
                     ),
                     evidence_tags=_evidence_tags(include_public_guidance=True),
@@ -135,7 +138,6 @@ def generate_annual_plan(profile: NurseryProfile, plan_input: AnnualPlanInput) -
                         "\n".join(
                             [
                                 f"{_profile_text(profile, 'family_collaboration_policy', '家庭と育ちの姿を共有する。')}",
-                                f"地域との関わりとして {_profile_text(profile, 'local_collaboration_policy', '地域とのつながりを保育に生かす。')} を意識する。",
                                 f"年間行事として {plan_input.annual_events or '年間行事'} を踏まえ、家庭と見通しを共有する。",
                             ]
                         ),
@@ -155,12 +157,12 @@ def generate_annual_plan(profile: NurseryProfile, plan_input: AnnualPlanInput) -
                         confirmation_note,
                         "\n".join(
                             [
-                                f"保育目標「{profile.childcare_goal}」や、育てたい子ども像「{profile.desired_child_image}」につながる姿が見られたか。",
-                                "子どもが自分なりの思いを出せていたか。",
-                                "友だちとの関わりが次の活動につながっていたか。",
-                                "環境構成と援助が年間のねらいと矛盾なくつながっていたかを確認する。",
-                            ]
-                        ),
+                        "子どもが自分なりの思いを出せていたか。",
+                        "友だちとの関わりが次の活動につながっていたか。",
+                        profile.assessment_policy or "園の評価、振り返り観点に照らして確認する。",
+                        "環境構成と援助が年間のねらいと矛盾なくつながっていたかを確認する。",
+                    ]
+                ),
                     ),
                     evidence_tags=_evidence_tags(include_public_guidance=True),
                     source_refs=[
@@ -232,6 +234,7 @@ def generate_monthly_plan(
                     [
                         f"現在の姿: {plan_input.current_children_snapshot}",
                         f"前月からのつながり: {plan_input.previous_reflection}",
+                        f"子ども観: {profile.child_view or '子どもの思いや選択を丁寧に捉える。'}",
                         "遊びや生活の中で、思いを出し合いながら関係を調整する姿を丁寧に捉える。",
                     ]
                 ),
@@ -253,6 +256,7 @@ def generate_monthly_plan(
                     [
                         f"興味の中心となっている {plan_input.play_interests or '遊びと生活'} が継続するよう、コーナーや素材を見直す。",
                         f"季節の文脈として {plan_input.seasonal_context or '月の生活リズム'} を取り込む。",
+                        f"生活リズムは {_profile_text(profile, 'daily_rhythm', 'クラスの実態に合わせて調整')} する。",
                         f"{_profile_text(profile, 'indoor_environment', '室内環境')} と {_profile_text(profile, 'outdoor_environment', '戸外環境')} を往還できる流れを整える。",
                     ]
                 ),
@@ -273,9 +277,10 @@ def generate_monthly_plan(
                 confirmation_note,
                 "\n".join(
                     [
-                        f"{profile.support_policy}",
+                        f"{_profile_text(profile, 'support_policy', '必要な援助を行う。')}",
+                        f"遊びの考え方として {profile.play_view or '探究が続くよう環境を整える'} を支えにする。",
                         f"必要に応じて {plan_input.class_notes or '話し合いの進め方'} を調整し、子どもが安心して思いを出せるようにする。",
-                        f"{_profile_text(profile, 'inclusive_policy', '違いを受け止め合える関わり')} を意識して援助する。",
+                        f"{profile.inclusive_policy or '違いを受け止め合える関わり'} を意識して援助する。",
                     ]
                 ),
             ),
@@ -317,6 +322,7 @@ def generate_monthly_plan(
                     [
                         "年間計画の該当期と矛盾なくつながっていたか。",
                         "前月の反省で挙がった課題に対して手立てが届いていたか。",
+                        profile.assessment_policy or "園の評価、振り返り観点を確認する。",
                         "環境構成と援助が子どもの姿の変化に合っていたかを確認する。",
                     ]
                 ),
@@ -341,6 +347,7 @@ def generate_monthly_plan(
 
 
 def _collect_missing_annual_inputs(profile: NurseryProfile, plan_input: AnnualPlanInput) -> list[str]:
+    profile_review = review_profile_completeness(profile)
     fields = {
         "承認済み園プロファイル": "OK" if profile.approved else "",
         "年度": str(plan_input.school_year),
@@ -349,7 +356,9 @@ def _collect_missing_annual_inputs(profile: NurseryProfile, plan_input: AnnualPl
         "今年のクラスの見通し": plan_input.class_outlook,
         "今年特に大切にしたい育ち": plan_input.focus_growth,
     }
-    return [label for label, value in fields.items() if not str(value).strip()]
+    missing_inputs = [label for label, value in fields.items() if not str(value).strip()]
+    missing_inputs.extend(f"園プロフィール: {issue.label}" for issue in profile_review.missing_required)
+    return missing_inputs
 
 
 def _collect_missing_monthly_inputs(
@@ -357,6 +366,7 @@ def _collect_missing_monthly_inputs(
     plan_input: MonthlyPlanInput,
     annual_term_context: str,
 ) -> list[str]:
+    profile_review = review_profile_completeness(profile)
     fields = {
         "承認済み園プロファイル": "OK" if profile.approved else "",
         "対象月": plan_input.target_month,
@@ -367,7 +377,9 @@ def _collect_missing_monthly_inputs(
         "今の子どもの姿": plan_input.current_children_snapshot,
         "年間計画の関連文脈": annual_term_context,
     }
-    return [label for label, value in fields.items() if not str(value).strip()]
+    missing_inputs = [label for label, value in fields.items() if not str(value).strip()]
+    missing_inputs.extend(f"園プロフィール: {issue.label}" for issue in profile_review.missing_required)
+    return missing_inputs
 
 
 def _collect_annual_term_context(annual_plan: GeneratedPlan, related_term_key: str) -> str:
@@ -413,14 +425,6 @@ def _editor_note(missing_inputs: list[str]) -> str | None:
 def _profile_text(profile: NurseryProfile, field_key: str, fallback: str) -> str:
     value = profile.text_for(field_key).strip()
     return value or fallback
-
-
-def _writing_style_sentence(profile: NurseryProfile) -> str:
-    sentence = f"文体は {_profile_text(profile, 'sentence_tone', '園の既定トーン')} を保ち、{_profile_text(profile, 'preferred_expressions', '園らしい表現')} を生かす。"
-    avoid_expressions = profile.text_for('avoid_expressions').strip()
-    if avoid_expressions:
-        sentence = f"{sentence} 避けたい表現として {avoid_expressions} に留意する。"
-    return sentence
 
 
 def _profile_source_ref(profile: NurseryProfile) -> SourceRef:

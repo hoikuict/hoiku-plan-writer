@@ -6,12 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from ...auth import get_current_staff_user, require_admin, require_can_edit, require_classroom_access
 from ...db import get_session
 from ...domain.models import DocumentStatus
-from ...persistence.repositories import (
-    get_document,
-    list_documents,
-    update_document_content,
-    update_document_status,
-)
+from ...persistence.repositories import get_document, list_documents, update_document_content, update_document_status
 from ..templating import is_htmx_request, render_template
 
 router = APIRouter(prefix="/documents", tags=["documents"])

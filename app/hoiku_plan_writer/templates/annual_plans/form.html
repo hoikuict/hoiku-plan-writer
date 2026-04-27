@@ -10,8 +10,7 @@
       <p class="mt-2 text-sm text-stone-600">有効な園プロファイル: v{{ active_profile.version }} / {{ active_profile.nursery_name }}</p>
       {% elif latest_profile_version %}
       <div class="mt-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        保存済みの園プロフィール: v{{ latest_profile_version.version }} / {{ latest_profile_version.nursery_name }}
-        ただし、まだ下書きのため年間指導計画には反映されません。管理者で有効化してください。
+        園プロフィール v{{ latest_profile_version.version }} / {{ latest_profile_version.nursery_name }} は保存済みですが、まだ有効化されていません。
       </div>
       {% else %}
       <p class="mt-2 text-sm text-amber-700">有効な園プロファイルがまだありません。先に園プロファイルを保存して有効化してください。</p>
@@ -22,17 +21,25 @@
     </div>
 
     <section class="rounded-2xl bg-stone-50 px-4 py-4 text-sm text-stone-700">
-      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-start">
         <div>
           <p class="font-semibold text-stone-900">AIプレビュー</p>
           <p class="mt-1 text-sm text-stone-600">{{ llm_preview_note }}</p>
-          <p class="mt-2 text-xs text-stone-500">オンのときだけプレビューを LLM で構成します。保存は常に既定 generator のままです。</p>
-          <p class="mt-1 text-xs text-stone-500">CPU での LLM プレビューは 2分前後かかることがあります。</p>
+          <p class="mt-2 text-xs text-stone-500">プレビュー時にLLMで文案を整えます。保存時は、既定案かプレビュー案を選べます。</p>
         </div>
-        <label class="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-medium text-stone-700 ring-1 ring-stone-200 {% if not llm_preview_available %}opacity-60{% endif %}">
-          <input type="checkbox" name="use_llm_preview" {% if llm_preview_checked %}checked{% endif %} {% if not llm_preview_available %}disabled{% endif %} class="rounded border-stone-300 text-emerald-600 focus:ring-emerald-500">
-          LLMプレビューを使う
-        </label>
+        <div class="space-y-3">
+          <label class="block text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">モデル
+            <select name="ai_model" {% if not llm_preview_available %}disabled{% endif %} class="mt-2 w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 disabled:opacity-60">
+              {% for model_name in ai_model_options %}
+              <option value="{{ model_name }}" {% if model_name == selected_ai_model %}selected{% endif %}>{{ model_name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-medium text-stone-700 ring-1 ring-stone-200 {% if not llm_preview_available %}opacity-60{% endif %}">
+            <input type="checkbox" name="use_llm_preview" {% if llm_preview_checked %}checked{% endif %} {% if not llm_preview_available %}disabled{% endif %} class="rounded border-stone-300 text-emerald-600 focus:ring-emerald-500">
+            LLMプレビューを使う
+          </label>
+        </div>
       </div>
     </section>
 
@@ -62,19 +69,19 @@
       <label class="block text-sm font-medium text-stone-700">季節・地域文脈<textarea name="seasonal_context" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.seasonal_context }}</textarea></label>
       <label class="block text-sm font-medium text-stone-700">地域資源<textarea name="community_resources" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.community_resources }}</textarea></label>
       <label class="block text-sm font-medium text-stone-700">配慮事項<textarea name="care_points" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.care_points }}</textarea></label>
-      <label class="block text-sm font-medium text-stone-700">引き継ぎ事項<textarea name="handover_notes" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.handover_notes }}</textarea></label>
+      <label class="block text-sm font-medium text-stone-700">引継ぎ事項<textarea name="handover_notes" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.handover_notes }}</textarea></label>
     </section>
 
+    {% if preview_plan_json %}
+    <textarea name="preview_plan_json" class="hidden">{{ preview_plan_json }}</textarea>
+    {% endif %}
+
     <div class="flex flex-wrap gap-3 items-center">
-      <button
-        id="annual-preview-button"
-        type="submit"
-        formaction="/annual-plans/preview"
-        formmethod="post"
-        formnovalidate
-        class="rounded-xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100"
-      >プレビュー</button>
-      <button type="submit" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">下書きを保存</button>
+      <button id="annual-preview-button" type="submit" formaction="/annual-plans/preview" formmethod="post" formnovalidate class="rounded-xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">プレビュー</button>
+      {% if preview_plan_json %}
+      <button type="submit" name="action" value="adopt_preview" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">このプレビューで下書き保存</button>
+      {% endif %}
+      <button type="submit" name="action" value="save_rule_based" class="rounded-xl border border-emerald-600 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50">既定案で下書き保存</button>
       <a href="/nursery-profile/" class="rounded-xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">園プロフィールを開く</a>
       <p id="annual-preview-status" class="hidden text-sm text-stone-500">プレビューを生成中です。しばらくお待ちください。</p>
     </div>
@@ -83,7 +90,7 @@
   <section class="space-y-4">
     <div class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-200">
       <h2 class="text-lg font-semibold text-stone-900">プレビュー</h2>
-      <p class="mt-2 text-sm text-stone-600">サーバ側で下書きを構成してから画面を更新します。LLM がオンのときは 2分前後かかることがあります。</p>
+      <p class="mt-2 text-sm text-stone-600">プレビュー後に「このプレビューで下書き保存」を選ぶと、表示中の文案が保存されます。</p>
     </div>
     <div id="preview-panel">
       {% with plan=preview_plan, error_message=preview_error_message, generation_note=preview_generation_note %}
@@ -94,10 +101,9 @@
 </div>
 <script>
   (function () {
-    const form = document.getElementById('annual-plan-form');
     const previewButton = document.getElementById('annual-preview-button');
     const status = document.getElementById('annual-preview-status');
-    if (!form || !previewButton || !status) {
+    if (!previewButton || !status) {
       return;
     }
     previewButton.addEventListener('click', function () {

@@ -1,17 +1,15 @@
-import json
+import html
 import os
+import re
 import tempfile
 import unittest
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from hoiku_plan_writer.ai.prompts import build_annual_plan_block_messages
-from hoiku_plan_writer.ai.providers.ollama_chat import OllamaChatProvider
-from hoiku_plan_writer.ai.service import AnnualPlanPreviewService, build_annual_preview_service
+from hoiku_plan_writer.ai.service import AnnualPlanPreviewService
 from hoiku_plan_writer.config import Settings
 from hoiku_plan_writer.domain.models import GeneratedPlan, SectionBlock
-from hoiku_plan_writer.domain.profile_fields import PROFILE_DEFAULT_ENABLED_KEYS
 from hoiku_plan_writer.main import create_app
 from hoiku_plan_writer.sample_data import sample_annual_input, sample_profile
 from hoiku_plan_writer.services.generators import generate_annual_plan
@@ -21,103 +19,17 @@ class FakeAnnualPreviewProvider:
     provider_name = "fake-llm"
     model_name = "fake-model"
 
-    def generate_annual_plan_preview(self, *, profile, plan_input, fallback_plan):
-        blocks: list[SectionBlock] = []
-        for block in fallback_plan.blocks:
-            body = block.body
-            if block.section_key == "annual_goal":
-                body = f"LLM-PREVIEW-MARKER\n{body}"
-            blocks.append(
-                SectionBlock(
-                    section_key=block.section_key,
-                    title=block.title,
-                    body=body,
-                    evidence_tags=list(block.evidence_tags),
-                    source_refs=list(block.source_refs),
-                    needs_confirmation=block.needs_confirmation,
-                    editor_note=block.editor_note,
-                )
-            )
-        return GeneratedPlan(
-            document_type=fallback_plan.document_type,
-            title="LLM preview annual plan",
-            status=fallback_plan.status,
-            blocks=blocks,
-            missing_inputs=list(fallback_plan.missing_inputs),
-        )
+    def generate_annual_plan_preview(self, *, profile, plan_input, fallback_plan, model_name=None):
+        return _plan_with_marker(fallback_plan, section_key="annual_goal", marker="LLM-ANNUAL-MARKER")
 
+    def generate_monthly_plan_preview(self, *, profile, annual_plan, plan_input, fallback_plan, model_name=None):
+        return _plan_with_marker(fallback_plan, section_key="monthly_goal", marker="LLM-MONTHLY-MARKER")
 
-class FailingAnnualPreviewProvider:
-    provider_name = "fake-llm"
-    model_name = "fake-model"
-
-    def generate_annual_plan_preview(self, *, profile, plan_input, fallback_plan):
-        raise RuntimeError("boom")
-
-
-class AnnualPlanPromptTests(unittest.TestCase):
-    def test_block_prompt_moves_short_inputs_into_weak_hints(self) -> None:
-        profile = sample_profile()
-        profile.childcare_goal = "考えて遊べる子ども"
-        profile.desired_child_image = "かっこいいこども"
-        plan_input = sample_annual_input()
-        plan_input.class_outlook = "がんばる"
-        plan_input.focus_growth = "こころ"
-        plan_input.annual_events = "おすもう"
-        fallback_plan = generate_annual_plan(profile, plan_input)
-
-        messages = build_annual_plan_block_messages(
-            profile=profile,
-            plan_input=plan_input,
-            fallback_plan=fallback_plan,
-            fallback_block=fallback_plan.blocks[0],
-        )
-        payload = json.loads(messages[1]["content"])
-
-        self.assertNotIn("childcare_goal", payload["nursery_profile"])
-        self.assertNotIn("desired_child_image", payload["nursery_profile"])
-        self.assertNotIn("class_outlook", payload["plan_input"])
-        self.assertNotIn("focus_growth", payload["plan_input"])
-
-        weak_fields = {item["field"] for item in payload["weak_input_hints"]}
-        self.assertIn("childcare_goal", weak_fields)
-        self.assertIn("desired_child_image", weak_fields)
-        self.assertIn("class_outlook", weak_fields)
-        self.assertIn("focus_growth", weak_fields)
-        self.assertIn("baseline_note", payload["block"])
-        self.assertNotIn("baseline_body", payload["block"])
-
-    def test_block_prompt_includes_section_specific_guidance(self) -> None:
-        profile = sample_profile()
-        plan_input = sample_annual_input()
-        fallback_plan = generate_annual_plan(profile, plan_input)
-        support_block = next(block for block in fallback_plan.blocks if block.section_key == "term_1_support")
-
-        messages = build_annual_plan_block_messages(
-            profile=profile,
-            plan_input=plan_input,
-            fallback_plan=fallback_plan,
-            fallback_block=support_block,
-        )
-        payload = json.loads(messages[1]["content"])
-        guidance = payload["block"]["section_guidance"]
-
-        self.assertEqual(guidance["section_kind"], "support")
-        self.assertIn("具体的な保育者の援助行為", " ".join(guidance["must_include"]))
-        self.assertIn("短い語句をそのまま", " ".join(guidance["avoid"]))
-        self.assertIn("care_points", payload["plan_input"])
+    def list_model_names(self):
+        return ["fake-model", "fake-bigger-model"]
 
 
 class AnnualPlanPreviewServiceTests(unittest.TestCase):
-    def test_disabled_service_returns_rule_based_plan(self) -> None:
-        service = AnnualPlanPreviewService(annual_preview_enabled=False)
-
-        result = service.preview(profile=sample_profile(), plan_input=sample_annual_input())
-
-        self.assertEqual(result.generation_mode, "fallback")
-        self.assertIn("generator", result.note)
-        self.assertEqual(result.plan.blocks[0].section_key, "annual_goal")
-
     def test_enabled_service_uses_provider_output(self) -> None:
         service = AnnualPlanPreviewService(
             provider=FakeAnnualPreviewProvider(),
@@ -127,54 +39,27 @@ class AnnualPlanPreviewServiceTests(unittest.TestCase):
         result = service.preview(profile=sample_profile(), plan_input=sample_annual_input())
 
         self.assertTrue(result.is_llm)
-        self.assertEqual(result.plan.title, "LLM preview annual plan")
-        self.assertIn("LLM-PREVIEW-MARKER", result.plan.blocks[0].body)
-        self.assertIn("fake-llm / fake-model", result.note)
+        self.assertIn("LLM-ANNUAL-MARKER", result.plan.blocks[0].body)
 
-    def test_enabled_service_can_be_turned_off_per_request(self) -> None:
+    def test_monthly_preview_uses_provider_output(self) -> None:
+        profile = sample_profile()
+        annual_plan = generate_annual_plan(profile, sample_annual_input())
         service = AnnualPlanPreviewService(
             provider=FakeAnnualPreviewProvider(),
-            annual_preview_enabled=True,
+            monthly_preview_enabled=True,
         )
 
-        result = service.preview(
-            profile=sample_profile(),
-            plan_input=sample_annual_input(),
-            use_llm=False,
+        result = service.preview_monthly(
+            profile=profile,
+            annual_plan=annual_plan,
+            plan_input=_monthly_domain_input(),
         )
 
-        self.assertEqual(result.generation_mode, "fallback")
-        self.assertIn("generator", result.note)
-        self.assertNotIn("LLM-PREVIEW-MARKER", result.plan.blocks[0].body)
-
-    def test_provider_failure_falls_back_to_rule_based_plan(self) -> None:
-        service = AnnualPlanPreviewService(
-            provider=FailingAnnualPreviewProvider(),
-            annual_preview_enabled=True,
-        )
-
-        result = service.preview(profile=sample_profile(), plan_input=sample_annual_input())
-
-        self.assertEqual(result.generation_mode, "fallback")
-        self.assertIn("generator", result.note)
-        self.assertNotIn("LLM-PREVIEW-MARKER", result.plan.blocks[0].body)
-
-    def test_build_service_uses_ollama_default_model(self) -> None:
-        service = build_annual_preview_service(
-            Settings(
-                ai_provider="ollama",
-                ai_enable_annual_preview=True,
-            )
-        )
-
-        self.assertTrue(service.can_use_llm)
-        self.assertIsInstance(service.provider, OllamaChatProvider)
-        assert service.provider is not None
-        self.assertEqual(service.provider.model_name, "qwen2.5:0.5b")
-        self.assertEqual(service.provider.base_url, "http://127.0.0.1:11434")
+        self.assertTrue(result.is_llm)
+        self.assertIn("LLM-MONTHLY-MARKER", result.plan.blocks[0].body)
 
 
-class AnnualPlanPreviewWebIntegrationTests(unittest.TestCase):
+class AnnualPlanPreviewWebTests(unittest.TestCase):
     def setUp(self) -> None:
         fd, db_path = tempfile.mkstemp(dir=Path.cwd(), prefix="hoiku-plan-ai-test-", suffix=".db")
         os.close(fd)
@@ -183,6 +68,7 @@ class AnnualPlanPreviewWebIntegrationTests(unittest.TestCase):
         preview_service = AnnualPlanPreviewService(
             provider=FakeAnnualPreviewProvider(),
             annual_preview_enabled=True,
+            monthly_preview_enabled=True,
         )
         self.app = create_app(settings, annual_preview_service=preview_service)
         self.client_cm = TestClient(self.app)
@@ -194,16 +80,24 @@ class AnnualPlanPreviewWebIntegrationTests(unittest.TestCase):
         if self.db_path.exists():
             self.db_path.unlink()
 
-    def test_annual_form_shows_llm_toggle(self) -> None:
+    def test_annual_and_monthly_forms_show_llm_toggle(self) -> None:
         self._login_as_admin()
 
-        response = self.client.get("/annual-plans/new")
+        annual_response = self.client.get("/annual-plans/new")
+        monthly_response = self.client.get("/monthly-plans/new")
 
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("name=\"use_llm_preview\"", response.text)
-        self.assertIn("fake-llm / fake-model", response.text)
+        self.assertEqual(annual_response.status_code, 200)
+        self.assertEqual(monthly_response.status_code, 200)
+        self.assertIn('name="use_llm_preview"', annual_response.text)
+        self.assertIn('name="use_llm_preview"', monthly_response.text)
+        self.assertIn('name="ai_model"', annual_response.text)
+        self.assertIn('name="ai_model"', monthly_response.text)
+        self.assertIn("fake-bigger-model", annual_response.text)
+        self.assertIn("fake-bigger-model", monthly_response.text)
+        self.assertIn("fake-llm / fake-model", annual_response.text)
+        self.assertIn("fake-llm / fake-model", monthly_response.text)
 
-    def test_annual_preview_uses_ai_service_but_save_keeps_rule_based_generator(self) -> None:
+    def test_annual_preview_can_be_adopted_on_save(self) -> None:
         self._login_as_admin()
         self._activate_profile()
 
@@ -211,74 +105,73 @@ class AnnualPlanPreviewWebIntegrationTests(unittest.TestCase):
             "/annual-plans/preview",
             data={**self._annual_plan_payload(), "use_llm_preview": "on"},
         )
+
         self.assertEqual(preview.status_code, 200)
-        self.assertIn("LLM-PREVIEW-MARKER", preview.text)
-        self.assertIn("fake-llm / fake-model", preview.text)
+        self.assertIn("LLM-ANNUAL-MARKER", preview.text)
+        preview_plan_json = _extract_preview_plan_json(preview.text)
 
         create_response = self.client.post(
             "/annual-plans/",
-            data=self._annual_plan_payload(),
+            data={
+                **self._annual_plan_payload(),
+                "action": "adopt_preview",
+                "preview_plan_json": preview_plan_json,
+            },
             follow_redirects=False,
         )
         self.assertEqual(create_response.status_code, 303)
-        self.assertEqual(create_response.headers["location"], "/documents/1")
 
         detail = self.client.get("/documents/1")
         self.assertEqual(detail.status_code, 200)
-        self.assertNotIn("LLM-PREVIEW-MARKER", detail.text)
+        self.assertIn("LLM-ANNUAL-MARKER", detail.text)
 
-    def test_annual_preview_can_be_switched_off(self) -> None:
+    def test_rule_based_save_still_available_after_preview(self) -> None:
         self._login_as_admin()
         self._activate_profile()
 
-        preview = self.client.post(
-            "/annual-plans/preview",
-            data=self._annual_plan_payload(),
-        )
-        self.assertEqual(preview.status_code, 200)
-        self.assertNotIn("LLM-PREVIEW-MARKER", preview.text)
-        self.assertIn("generator", preview.text)
-
-    def test_annual_preview_without_htmx_returns_full_form_page(self) -> None:
-        self._login_as_admin()
-        self._activate_profile()
-
-        preview = self.client.post(
+        self.client.post(
             "/annual-plans/preview",
             data={**self._annual_plan_payload(), "use_llm_preview": "on"},
         )
-
-        self.assertEqual(preview.status_code, 200)
-        self.assertIn('id="annual-plan-form"', preview.text)
-        self.assertIn("LLM-PREVIEW-MARKER", preview.text)
-
-    def test_annual_preview_with_htmx_returns_preview_partial(self) -> None:
-        self._login_as_admin()
-        self._activate_profile()
-
-        preview = self.client.post(
-            "/annual-plans/preview",
-            data={**self._annual_plan_payload(), "use_llm_preview": "on"},
-            headers={"HX-Request": "true"},
+        create_response = self.client.post(
+            "/annual-plans/",
+            data={**self._annual_plan_payload(), "action": "save_rule_based"},
+            follow_redirects=False,
         )
 
-        self.assertEqual(preview.status_code, 200)
-        self.assertNotIn('id="annual-plan-form"', preview.text)
-        self.assertIn("LLM-PREVIEW-MARKER", preview.text)
+        self.assertEqual(create_response.status_code, 303)
+        detail = self.client.get("/documents/1")
+        self.assertEqual(detail.status_code, 200)
+        self.assertNotIn("LLM-ANNUAL-MARKER", detail.text)
 
-    def test_monthly_preview_without_htmx_returns_full_form_page(self) -> None:
+    def test_monthly_preview_uses_ai_service_and_can_be_adopted(self) -> None:
         self._login_as_admin()
         self._activate_profile()
-        self._create_annual_plan()
+        self._create_annual_document()
 
         preview = self.client.post(
             "/monthly-plans/preview",
-            data=self._monthly_plan_payload(),
+            data={**self._monthly_plan_payload(), "use_llm_preview": "on"},
         )
 
         self.assertEqual(preview.status_code, 200)
-        self.assertIn('id="monthly-plan-form"', preview.text)
-        self.assertIn("今月のねらい", preview.text)
+        self.assertIn("LLM-MONTHLY-MARKER", preview.text)
+        preview_plan_json = _extract_preview_plan_json(preview.text)
+
+        create_response = self.client.post(
+            "/monthly-plans/",
+            data={
+                **self._monthly_plan_payload(),
+                "action": "adopt_preview",
+                "preview_plan_json": preview_plan_json,
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(create_response.status_code, 303)
+
+        detail = self.client.get("/documents/2")
+        self.assertEqual(detail.status_code, 200)
+        self.assertIn("LLM-MONTHLY-MARKER", detail.text)
 
     def _login_as_admin(self) -> None:
         response = self.client.post(
@@ -288,7 +181,7 @@ class AnnualPlanPreviewWebIntegrationTests(unittest.TestCase):
                 "actor_ref": "staff:test-admin",
                 "nursery_ref": "nursery:test",
                 "classroom_refs_raw": "classroom:5yo-a",
-                "name": "Test Admin",
+                "name": "テスト管理者",
                 "redirect_to": "/documents/",
             },
             follow_redirects=False,
@@ -296,41 +189,14 @@ class AnnualPlanPreviewWebIntegrationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 303)
 
     def _activate_profile(self) -> None:
-        payload = {
-            "nursery_name": "Test Nursery",
-            "target_age_group": "3-5",
-            "class_configuration": "One mixed-age class",
-            "philosophy": "We protect curiosity and dialogue.",
-            "childcare_goal": "Children grow through play and conversation.",
-            "desired_child_image": "Children who can express ideas and collaborate.",
-            "child_view": "Each child learns in relationship with others.",
-            "play_view": "Play is a path for inquiry and meaning-making.",
-            "support_policy": "Adults observe first and support when needed.",
-            "indoor_environment": "Children can choose materials and spaces on their own.",
-            "outdoor_environment": "Outdoor play connects with seasons and nature.",
-            "corner_play": "Art and pretend-play corners stay available over time.",
-            "community_resources": "Parks and the local library are part of the curriculum.",
-            "family_collaboration_policy": "We share daily growth with families in both directions.",
-            "local_collaboration_policy": "Children build familiarity with the local community.",
-            "health_and_safety_policy": "Safety checks and predictable routines are part of each day.",
-            "inclusive_policy": "Different ways of participating are welcomed and supported.",
-            "preferred_expressions": "notice, confirm together, express safely",
-            "avoid_expressions": "force everyone, push because not enough",
-            "sentence_tone": "gentle and clear",
-            "missing_input_policy": "Missing information must stay flagged for review.",
-            "confirmation_marker": "Needs Review",
-            "evidence_tag_policy": "Evidence tags stay visible for review.",
-            "enabled_field_keys": list(PROFILE_DEFAULT_ENABLED_KEYS),
-            "action": "activate",
-        }
         response = self.client.post(
             "/nursery-profile/",
-            data=payload,
+            data={**_profile_payload(), "action": "activate"},
             follow_redirects=False,
         )
         self.assertEqual(response.status_code, 303)
 
-    def _create_annual_plan(self) -> None:
+    def _create_annual_document(self) -> None:
         response = self.client.post(
             "/annual-plans/",
             data=self._annual_plan_payload(),
@@ -344,15 +210,15 @@ class AnnualPlanPreviewWebIntegrationTests(unittest.TestCase):
         return {
             "classroom_ref": "classroom:5yo-a",
             "school_year": "2026",
-            "class_name": "Five",
-            "age_group": "5-year-olds",
-            "class_outlook": "Children are starting to plan play together.",
-            "focus_growth": "Build collaborative thinking through shared play.",
-            "annual_events": "Sports day, performance day",
-            "seasonal_context": "Spring to winter transitions",
-            "community_resources": "Park and library",
-            "care_points": "Balance safety and dialogue",
-            "handover_notes": "Children already show interest in group discussion.",
+            "class_name": "5歳児",
+            "age_group": "5歳児",
+            "class_outlook": "友だちと相談しながら遊びを進めたい。",
+            "focus_growth": "協力しながら主体的に活動をつくる力。",
+            "annual_events": "運動会、発表会",
+            "seasonal_context": "春夏秋冬の変化",
+            "community_resources": "公園、図書館",
+            "care_points": "安全と対話の両立",
+            "handover_notes": "前年度から話し合いへの関心が高い。",
         }
 
     @staticmethod
@@ -360,17 +226,91 @@ class AnnualPlanPreviewWebIntegrationTests(unittest.TestCase):
         return {
             "classroom_ref": "classroom:5yo-a",
             "target_month": "2026-05",
-            "class_name": "Five",
-            "owner_name": "Test Admin",
+            "class_name": "5歳児",
+            "owner_name": "テスト管理者",
             "related_annual_plan_id_raw": "1",
             "related_term_key": "term_1",
-            "previous_reflection": "Children began to coordinate roles in play.",
-            "current_children_snapshot": "Small groups are negotiating how to continue shared projects.",
-            "play_interests": "Construction, pretend play, drawing maps",
-            "seasonal_context": "Early summer weather and outdoor changes",
-            "family_context": "Families are talking more about weekend experiences.",
-            "class_notes": "Support turn-taking without closing off ideas.",
+            "previous_reflection": "新年度に慣れてきた。",
+            "current_children_snapshot": "友だちとのやり取りが増えている。",
+            "play_interests": "ごっこ遊び、制作",
+            "seasonal_context": "春から初夏への変化",
+            "family_context": "家庭でも友だちの話題が増えた。",
+            "class_notes": "安心して発言できる話し合いを意識する。",
         }
+
+
+def _plan_with_marker(fallback_plan: GeneratedPlan, *, section_key: str, marker: str) -> GeneratedPlan:
+    blocks: list[SectionBlock] = []
+    for block in fallback_plan.blocks:
+        body = block.body
+        if block.section_key == section_key:
+            body = f"{marker}\n{body}"
+        blocks.append(
+            SectionBlock(
+                section_key=block.section_key,
+                title=block.title,
+                body=body,
+                evidence_tags=list(block.evidence_tags),
+                source_refs=list(block.source_refs),
+                needs_confirmation=block.needs_confirmation,
+                editor_note=block.editor_note,
+            )
+        )
+    return GeneratedPlan(
+        document_type=fallback_plan.document_type,
+        title=f"{marker} preview",
+        status=fallback_plan.status,
+        blocks=blocks,
+        missing_inputs=list(fallback_plan.missing_inputs),
+    )
+
+
+def _profile_payload() -> dict[str, str]:
+    return {
+        "nursery_name": "テスト保育園",
+        "target_age_group": "3〜5歳児",
+        "class_configuration": "年長1クラス",
+        "local_context": "住宅地にあり、公園と図書館が近い。",
+        "philosophy": "子どもの主体性を大切にする。",
+        "childcare_goal": "遊びを通して考える力を育む。",
+        "desired_child_image": "友だちと協力して遊びを進める子ども。",
+        "child_view": "一人ひとりの思いを尊重する。",
+        "play_view": "探究が続く遊びを支える。",
+        "support_policy": "見守りを基調に必要な援助を行う。",
+        "curriculum_focus": "全体的な計画の重点と年間の育ちをつなげる。",
+        "assessment_policy": "子どもの選択と友だちとの相談を振り返りの観点にする。",
+        "indoor_environment": "落ち着いて選べる室内環境を整える。",
+        "outdoor_environment": "季節を感じられる園庭活動を取り入れる。",
+        "family_collaboration_policy": "家庭と日々の姿を共有する。",
+        "health_and_safety_policy": "安心安全を日常的に確認する。",
+        "inclusive_policy": "違いを受け止め合える集団づくりを行う。",
+        "sentence_tone": "やわらかく丁寧",
+        "document_format_notes": "一文を短めにする。",
+    }
+
+
+def _monthly_domain_input():
+    from hoiku_plan_writer.domain.models import MonthlyPlanInput
+
+    return MonthlyPlanInput(
+        target_month="2026-05",
+        class_name="5歳児",
+        owner_name="テスト管理者",
+        related_term_key="term_1",
+        previous_reflection="新年度に慣れてきた。",
+        current_children_snapshot="友だちとのやり取りが増えている。",
+        play_interests="ごっこ遊び、制作",
+        seasonal_context="春から初夏への変化",
+        family_context="家庭でも友だちの話題が増えた。",
+        class_notes="安心して発言できる話し合いを意識する。",
+    )
+
+
+def _extract_preview_plan_json(text: str) -> str:
+    match = re.search(r'<textarea name="preview_plan_json" class="hidden">(.*?)</textarea>', text, re.S)
+    if not match:
+        raise AssertionError("preview_plan_json textarea was not rendered")
+    return html.unescape(match.group(1))
 
 
 if __name__ == "__main__":

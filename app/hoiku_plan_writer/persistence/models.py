@@ -19,12 +19,15 @@ class NurseryProfileRecord(SQLModel, table=True):
     nursery_name: str
     target_age_group: str
     class_configuration: str
+    local_context: str = ""
     philosophy: str
     childcare_goal: str
     desired_child_image: str
     child_view: str
     play_view: str
     support_policy: str
+    curriculum_focus: str = ""
+    assessment_policy: str = ""
     indoor_environment: str = ""
     outdoor_environment: str = ""
     corner_play: str = ""
@@ -33,13 +36,15 @@ class NurseryProfileRecord(SQLModel, table=True):
     local_collaboration_policy: str = ""
     health_and_safety_policy: str = ""
     inclusive_policy: str = ""
+    daily_rhythm: str = ""
     preferred_expressions: str = ""
     avoid_expressions: str = ""
     sentence_tone: str = ""
+    document_format_notes: str = ""
     missing_input_policy: str = "未入力は要確認として扱う。"
     confirmation_marker: str = "要確認"
     evidence_tag_policy: str = "根拠タグを表示する。"
-    enabled_field_keys_json: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    privacy_policy: str = "個人名、診断名、健康詳細、家庭の詳細事情は入力・出力に含めない。"
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 

@@ -14,7 +14,6 @@ from ..domain.models import (
     SectionBlock,
     SourceRef,
 )
-from ..domain.profile_fields import PROFILE_DEFAULT_ENABLED_KEYS
 from ..persistence.models import ApprovalLogRecord, NurseryProfileRecord, PlanBlockRecord, PlanDocumentRecord
 from ..time_utils import utc_now
 
@@ -25,15 +24,6 @@ def list_profile_versions(session: Session, nursery_ref: str) -> list[NurseryPro
         .where(NurseryProfileRecord.nursery_ref == nursery_ref)
         .order_by(NurseryProfileRecord.version.desc(), NurseryProfileRecord.id.desc())
     ).all()
-
-
-def get_profile_record(session: Session, profile_id: int, nursery_ref: str) -> NurseryProfileRecord | None:
-    return session.exec(
-        select(NurseryProfileRecord).where(
-            NurseryProfileRecord.id == profile_id,
-            NurseryProfileRecord.nursery_ref == nursery_ref,
-        )
-    ).first()
 
 
 def get_active_profile_record(session: Session, nursery_ref: str) -> NurseryProfileRecord | None:
@@ -73,12 +63,15 @@ def save_profile(
         nursery_name=profile.nursery_name,
         target_age_group=profile.target_age_group,
         class_configuration=profile.class_configuration,
+        local_context=profile.local_context,
         philosophy=profile.philosophy,
         childcare_goal=profile.childcare_goal,
         desired_child_image=profile.desired_child_image,
         child_view=profile.child_view,
         play_view=profile.play_view,
         support_policy=profile.support_policy,
+        curriculum_focus=profile.curriculum_focus,
+        assessment_policy=profile.assessment_policy,
         indoor_environment=profile.indoor_environment,
         outdoor_environment=profile.outdoor_environment,
         corner_play=profile.corner_play,
@@ -87,13 +80,15 @@ def save_profile(
         local_collaboration_policy=profile.local_collaboration_policy,
         health_and_safety_policy=profile.health_and_safety_policy,
         inclusive_policy=profile.inclusive_policy,
+        daily_rhythm=profile.daily_rhythm,
         preferred_expressions=profile.preferred_expressions,
         avoid_expressions=profile.avoid_expressions,
         sentence_tone=profile.sentence_tone,
+        document_format_notes=profile.document_format_notes,
         missing_input_policy=profile.missing_input_policy,
         confirmation_marker=profile.confirmation_marker,
         evidence_tag_policy=profile.evidence_tag_policy,
-        enabled_field_keys_json=list(profile.enabled_field_keys),
+        privacy_policy=profile.privacy_policy,
     )
     session.add(record)
     session.commit()
@@ -101,40 +96,20 @@ def save_profile(
     return record
 
 
-def activate_profile_version(
-    session: Session,
-    *,
-    profile_id: int,
-    nursery_ref: str,
-) -> NurseryProfileRecord | None:
-    target = get_profile_record(session, profile_id, nursery_ref)
-    if not target:
-        return None
-
-    now = utc_now()
-    for existing in list_profile_versions(session, nursery_ref):
-        should_be_active = existing.id == target.id
-        if existing.approved != should_be_active:
-            existing.approved = should_be_active
-            existing.updated_at = now
-            session.add(existing)
-
-    session.commit()
-    session.refresh(target)
-    return target
-
-
 def profile_record_to_domain(record: NurseryProfileRecord) -> NurseryProfile:
     return NurseryProfile(
         nursery_name=record.nursery_name,
         target_age_group=record.target_age_group,
         class_configuration=record.class_configuration,
+        local_context=record.local_context,
         philosophy=record.philosophy,
         childcare_goal=record.childcare_goal,
         desired_child_image=record.desired_child_image,
         child_view=record.child_view,
         play_view=record.play_view,
         support_policy=record.support_policy,
+        curriculum_focus=record.curriculum_focus,
+        assessment_policy=record.assessment_policy,
         indoor_environment=record.indoor_environment,
         outdoor_environment=record.outdoor_environment,
         corner_play=record.corner_play,
@@ -143,15 +118,17 @@ def profile_record_to_domain(record: NurseryProfileRecord) -> NurseryProfile:
         local_collaboration_policy=record.local_collaboration_policy,
         health_and_safety_policy=record.health_and_safety_policy,
         inclusive_policy=record.inclusive_policy,
+        daily_rhythm=record.daily_rhythm,
         preferred_expressions=record.preferred_expressions,
         avoid_expressions=record.avoid_expressions,
         sentence_tone=record.sentence_tone,
+        document_format_notes=record.document_format_notes,
         missing_input_policy=record.missing_input_policy,
         confirmation_marker=record.confirmation_marker,
         evidence_tag_policy=record.evidence_tag_policy,
+        privacy_policy=record.privacy_policy,
         approved=record.approved,
         version=record.version,
-        enabled_field_keys=_profile_enabled_keys(record),
     )
 
 
@@ -318,6 +295,8 @@ def update_document_content(
 
     any_needs_confirmation = False
     for block in sorted(document.blocks, key=lambda item: (item.sort_order, item.id or 0)):
+        if block.id is None:
+            continue
         new_body = block_bodies_by_id.get(block.id, block.body)
         if new_body != block.body:
             block.body = new_body
@@ -410,13 +389,6 @@ def _dict_to_source_ref(payload: dict[str, Any]) -> SourceRef:
         ref=str(payload.get("ref", "")),
         label=str(payload.get("label", "")),
     )
-
-
-def _profile_enabled_keys(record: NurseryProfileRecord) -> tuple[str, ...]:
-    stored_keys = record.enabled_field_keys_json or []
-    if stored_keys:
-        return tuple(str(item) for item in stored_keys)
-    return PROFILE_DEFAULT_ENABLED_KEYS
 
 
 def _append_editor_note(existing_note: str | None, suffix: str) -> str:
