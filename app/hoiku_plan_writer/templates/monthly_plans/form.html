@@ -25,7 +25,7 @@
         </div>
         <div class="space-y-3">
           <label class="block text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">モデル
-            <select name="ai_model" {% if not llm_preview_available %}disabled{% endif %} class="mt-2 w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 disabled:opacity-60">
+            <select name="ai_model" class="mt-2 w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700">
               {% for model_name in ai_model_options %}
               <option value="{{ model_name }}" {% if model_name == selected_ai_model %}selected{% endif %}>{{ model_name }}</option>
               {% endfor %}
