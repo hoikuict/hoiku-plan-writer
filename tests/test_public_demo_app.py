@@ -71,8 +71,8 @@ class PublicDemoAppTests(unittest.TestCase):
 
         safety_response = self.client.get("/safety-plans/")
         self.assertEqual(safety_response.status_code, 200)
-        self.assertIn("2026年度 安全計画", safety_response.text)
-        self.assertIn("必須計画と主要な実施ログは期限内です", safety_response.text)
+        self.assertIn("まだ安全計画はありません", safety_response.text)
+        self.assertIn("安全計画を作成", safety_response.text)
 
     def test_http_session_isolation_and_reset(self) -> None:
         first_response = self.client.get("/documents/")
