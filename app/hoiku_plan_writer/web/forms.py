@@ -6,6 +6,7 @@ from datetime import date
 from fastapi import Form
 
 from ..domain.models import AnnualPlanInput, MonthlyPlanInput, NurseryProfile
+from ..domain.safety import FacilityType, SafetyFacilityProfile, SafetyLogType
 
 
 @dataclass(slots=True)
@@ -143,6 +144,82 @@ class MonthlyPlanFormData:
         return asdict(self)
 
 
+@dataclass(slots=True)
+class SafetyPlanFormData:
+    school_year: int
+    established_on_raw: str
+    facility_type: str
+    facility_name: str
+    municipality: str
+    capacity_summary: str
+    age_groups: str
+    has_bus: bool = False
+    has_outdoor_activity: bool = True
+    has_pool: bool = False
+    has_kitchen: bool = True
+    disaster_risks: str = ""
+    staff_counts: str = ""
+    outdoor_routes: str = ""
+    safety_policy: str = ""
+
+    @property
+    def established_on(self) -> date | None:
+        return _parse_date(self.established_on_raw)
+
+    def to_facility_profile(self) -> SafetyFacilityProfile:
+        try:
+            facility_type = FacilityType(self.facility_type)
+        except ValueError:
+            facility_type = FacilityType.NURSERY
+        return SafetyFacilityProfile(
+            facility_type=facility_type,
+            facility_name=self.facility_name,
+            municipality=self.municipality,
+            capacity_summary=self.capacity_summary,
+            age_groups=self.age_groups,
+            has_bus=self.has_bus,
+            has_outdoor_activity=self.has_outdoor_activity,
+            has_pool=self.has_pool,
+            has_kitchen=self.has_kitchen,
+            disaster_risks=self.disaster_risks,
+            staff_counts=self.staff_counts,
+            outdoor_routes=self.outdoor_routes,
+            safety_policy=self.safety_policy,
+        )
+
+    def as_snapshot(self) -> dict[str, object]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class SafetyLogFormData:
+    log_type: str
+    implemented_on_raw: str
+    title: str
+    participants: str = ""
+    method: str = ""
+    evidence_note: str = ""
+    evidence_file_ref: str = ""
+    related_action_id_raw: str = ""
+
+    @property
+    def implemented_on(self) -> date | None:
+        return _parse_date(self.implemented_on_raw)
+
+    @property
+    def related_action_id(self) -> int | None:
+        if not self.related_action_id_raw.strip():
+            return None
+        return int(self.related_action_id_raw)
+
+    @property
+    def parsed_log_type(self) -> SafetyLogType:
+        try:
+            return SafetyLogType(self.log_type)
+        except ValueError:
+            return SafetyLogType.TRAINING_DRILL
+
+
 def profile_form_data(
     nursery_name: str = Form(""),
     target_age_group: str = Form(""),
@@ -266,3 +343,70 @@ def monthly_plan_form_data(
         family_context=family_context,
         class_notes=class_notes,
     )
+
+
+def safety_plan_form_data(
+    school_year: int = Form(date.today().year),
+    established_on_raw: str = Form(date.today().isoformat()),
+    facility_type: str = Form(FacilityType.NURSERY.value),
+    facility_name: str = Form(""),
+    municipality: str = Form(""),
+    capacity_summary: str = Form(""),
+    age_groups: str = Form(""),
+    has_bus: bool = Form(False),
+    has_outdoor_activity: bool = Form(False),
+    has_pool: bool = Form(False),
+    has_kitchen: bool = Form(False),
+    disaster_risks: str = Form(""),
+    staff_counts: str = Form(""),
+    outdoor_routes: str = Form(""),
+    safety_policy: str = Form(""),
+) -> SafetyPlanFormData:
+    return SafetyPlanFormData(
+        school_year=school_year,
+        established_on_raw=established_on_raw,
+        facility_type=facility_type,
+        facility_name=facility_name,
+        municipality=municipality,
+        capacity_summary=capacity_summary,
+        age_groups=age_groups,
+        has_bus=has_bus,
+        has_outdoor_activity=has_outdoor_activity,
+        has_pool=has_pool,
+        has_kitchen=has_kitchen,
+        disaster_risks=disaster_risks,
+        staff_counts=staff_counts,
+        outdoor_routes=outdoor_routes,
+        safety_policy=safety_policy,
+    )
+
+
+def safety_log_form_data(
+    log_type: str = Form(SafetyLogType.TRAINING_DRILL.value),
+    implemented_on_raw: str = Form(date.today().isoformat()),
+    title: str = Form(""),
+    participants: str = Form(""),
+    method: str = Form(""),
+    evidence_note: str = Form(""),
+    evidence_file_ref: str = Form(""),
+    related_action_id_raw: str = Form(""),
+) -> SafetyLogFormData:
+    return SafetyLogFormData(
+        log_type=log_type,
+        implemented_on_raw=implemented_on_raw,
+        title=title,
+        participants=participants,
+        method=method,
+        evidence_note=evidence_note,
+        evidence_file_ref=evidence_file_ref,
+        related_action_id_raw=related_action_id_raw,
+    )
+
+
+def _parse_date(raw_value: str) -> date | None:
+    if not raw_value.strip():
+        return None
+    try:
+        return date.fromisoformat(raw_value)
+    except ValueError:
+        return None

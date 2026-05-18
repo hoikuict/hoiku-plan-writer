@@ -24,6 +24,7 @@ from .web.routers.documents import router as documents_router
 from .web.routers.home import router as home_router
 from .web.routers.monthly_plans import router as monthly_plans_router
 from .web.routers.nursery_profiles import router as nursery_profiles_router
+from .web.routers.safety_plans import router as safety_plans_router
 from .web.routers.staff_auth import router as staff_auth_router
 
 
@@ -153,6 +154,7 @@ def create_app(
     app.include_router(nursery_profiles_router)
     app.include_router(annual_plans_router)
     app.include_router(monthly_plans_router)
+    app.include_router(safety_plans_router)
     app.include_router(staff_auth_router)
     app.include_router(demo_router)
     return app

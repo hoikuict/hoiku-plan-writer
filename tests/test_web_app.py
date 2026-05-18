@@ -202,6 +202,119 @@ class WebAppTests(unittest.TestCase):
         self.assertIn("承認済み", approved_detail.text)
         self.assertIn("確認完了", approved_detail.text)
 
+    def test_safety_plan_workflow_tracks_required_logs(self) -> None:
+        self._login_as_admin()
+        profile_response = self.client.post(
+            "/nursery-profile/",
+            data={**self._profile_payload(), "action": "activate"},
+            follow_redirects=False,
+        )
+        self.assertEqual(profile_response.status_code, 303)
+
+        preview = self.client.post(
+            "/safety-plans/preview",
+            data={
+                "school_year": "2099",
+                "established_on_raw": "2099-04-01",
+                "facility_type": "nursery",
+                "facility_name": "テスト保育園",
+                "municipality": "テスト市",
+                "capacity_summary": "60名",
+                "age_groups": "0〜5歳児",
+                "has_outdoor_activity": "on",
+                "has_kitchen": "on",
+                "disaster_risks": "地震、風水害",
+                "staff_counts": "常勤10名、非常勤5名",
+                "outdoor_routes": "近隣公園までの散歩コース",
+                "safety_policy": "日々の安全確認を職員間で共有する。",
+            },
+        )
+        self.assertEqual(preview.status_code, 200)
+        self.assertIn("施設・設備等の安全点検", preview.text)
+        self.assertIn("年間予定", preview.text)
+
+        create = self.client.post(
+            "/safety-plans/",
+            data={
+                "action": "approve",
+                "school_year": "2099",
+                "established_on_raw": "2099-04-01",
+                "facility_type": "nursery",
+                "facility_name": "テスト保育園",
+                "municipality": "テスト市",
+                "capacity_summary": "60名",
+                "age_groups": "0〜5歳児",
+                "has_outdoor_activity": "on",
+                "has_kitchen": "on",
+                "disaster_risks": "地震、風水害",
+                "staff_counts": "常勤10名、非常勤5名",
+                "outdoor_routes": "近隣公園までの散歩コース",
+                "safety_policy": "日々の安全確認を職員間で共有する。",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(create.status_code, 303)
+        self.assertEqual(create.headers["location"], "/safety-plans/1")
+
+        detail = self.client.get("/safety-plans/1")
+        self.assertEqual(detail.status_code, 200)
+        self.assertIn("承認済み", detail.text)
+        self.assertIn("実施ログが不足", detail.text)
+
+        for log_type, title in [
+            ("training_drill", "年度初め安全計画職員周知"),
+            ("parent_notice", "入園時保護者周知"),
+            ("review", "年度安全計画見直し"),
+        ]:
+            log_response = self.client.post(
+                "/safety-plans/1/logs",
+                data={
+                    "log_type": log_type,
+                    "implemented_on_raw": "2099-05-01",
+                    "title": title,
+                    "participants": "全員",
+                    "method": "園内記録",
+                    "evidence_note": "記録簿に保存",
+                },
+                follow_redirects=False,
+            )
+            self.assertEqual(log_response.status_code, 303)
+
+        compliant_detail = self.client.get("/safety-plans/1")
+        self.assertEqual(compliant_detail.status_code, 200)
+        self.assertIn("必須計画と主要な実施ログは期限内です", compliant_detail.text)
+        self.assertIn("年度初め安全計画職員周知", compliant_detail.text)
+
+    def test_kindergarten_safety_plan_uses_school_safety_axis(self) -> None:
+        self._login_as_admin()
+
+        create = self.client.post(
+            "/safety-plans/",
+            data={
+                "action": "approve",
+                "school_year": "2099",
+                "established_on_raw": "2099-04-01",
+                "facility_type": "kindergarten",
+                "facility_name": "テスト幼稚園",
+                "municipality": "テスト市",
+                "capacity_summary": "90名",
+                "age_groups": "3〜5歳児",
+                "has_outdoor_activity": "on",
+                "has_kitchen": "on",
+                "disaster_risks": "地震",
+                "staff_counts": "常勤12名",
+                "outdoor_routes": "園庭、近隣公園",
+                "safety_policy": "学校安全計画に基づき安全指導を行う。",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(create.status_code, 303)
+
+        detail = self.client.get("/safety-plans/1")
+        self.assertEqual(detail.status_code, 200)
+        self.assertIn("学校安全計画", detail.text)
+        self.assertIn("学校安全計画の取組", detail.text)
+
 
 if __name__ == "__main__":
     unittest.main()

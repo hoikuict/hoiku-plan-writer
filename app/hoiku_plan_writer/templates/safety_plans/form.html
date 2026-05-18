@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}安全計画作成 | hoiku-plan-writer{% endblock %}
+{% block content %}
+<div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_28rem]">
+  <form method="post" action="/safety-plans/" class="space-y-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-200">
+    <div>
+      <p class="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">Safety Plan</p>
+      <h1 class="mt-2 text-3xl font-bold text-stone-900">安全計画を作成</h1>
+      {% if active_profile %}
+      <p class="mt-2 text-sm text-stone-600">園プロファイルから初期値を反映しています: v{{ active_profile.version }} / {{ active_profile.nursery_name }}</p>
+      {% else %}
+      <p class="mt-2 text-sm text-amber-700">有効な園プロファイルがないため、入力内容だけで作成します。</p>
+      {% endif %}
+      {% if form_error %}
+      <div class="mt-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">{{ form_error }}</div>
+      {% endif %}
+    </div>
+
+    <section class="grid gap-4 md:grid-cols-2">
+      <label class="block text-sm font-medium text-stone-700">年度
+        <input type="number" name="school_year" value="{{ form_data.school_year }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
+      </label>
+      <label class="block text-sm font-medium text-stone-700">策定日
+        <input type="date" name="established_on_raw" value="{{ form_data.established_on_raw }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
+      </label>
+      <label class="block text-sm font-medium text-stone-700">施設類型
+        <select name="facility_type" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
+          {% for value, label in facility_type_options %}
+          <option value="{{ value }}" {% if value == form_data.facility_type %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="block text-sm font-medium text-stone-700">施設名
+        <input name="facility_name" value="{{ form_data.facility_name }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" required>
+      </label>
+      <label class="block text-sm font-medium text-stone-700">自治体
+        <input name="municipality" value="{{ form_data.municipality }}" placeholder="例: 東京都〇〇区" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
+      </label>
+      <label class="block text-sm font-medium text-stone-700">定員・年齢構成
+        <input name="capacity_summary" value="{{ form_data.capacity_summary }}" placeholder="例: 60名、0〜5歳児" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
+      </label>
+    </section>
+
+    <label class="block text-sm font-medium text-stone-700">対象年齢
+      <input name="age_groups" value="{{ form_data.age_groups }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
+    </label>
+
+    <section class="rounded-2xl bg-stone-50 p-4">
+      <h2 class="text-sm font-semibold text-stone-900">該当するリスク・活動</h2>
+      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        <label class="inline-flex items-center gap-2 text-sm text-stone-700"><input type="checkbox" name="has_outdoor_activity" {% if form_data.has_outdoor_activity %}checked{% endif %} class="rounded border-stone-300 text-emerald-600">散歩・園外活動あり</label>
+        <label class="inline-flex items-center gap-2 text-sm text-stone-700"><input type="checkbox" name="has_bus" {% if form_data.has_bus %}checked{% endif %} class="rounded border-stone-300 text-emerald-600">送迎バスあり</label>
+        <label class="inline-flex items-center gap-2 text-sm text-stone-700"><input type="checkbox" name="has_pool" {% if form_data.has_pool %}checked{% endif %} class="rounded border-stone-300 text-emerald-600">プール・水遊びあり</label>
+        <label class="inline-flex items-center gap-2 text-sm text-stone-700"><input type="checkbox" name="has_kitchen" {% if form_data.has_kitchen %}checked{% endif %} class="rounded border-stone-300 text-emerald-600">給食・調理あり</label>
+      </div>
+    </section>
+
+    <section class="grid gap-4">
+      <label class="block text-sm font-medium text-stone-700">立地リスク・地域特性
+        <textarea name="disaster_risks" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.disaster_risks }}</textarea>
+      </label>
+      <label class="block text-sm font-medium text-stone-700">散歩コース・園外活動先
+        <textarea name="outdoor_routes" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.outdoor_routes }}</textarea>
+      </label>
+      <label class="block text-sm font-medium text-stone-700">職員数・研修対象
+        <textarea name="staff_counts" rows="2" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.staff_counts }}</textarea>
+      </label>
+      <label class="block text-sm font-medium text-stone-700">園の安全方針
+        <textarea name="safety_policy" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.safety_policy }}</textarea>
+      </label>
+    </section>
+
+    <div class="flex flex-wrap gap-3">
+      <button type="submit" formaction="/safety-plans/preview" formmethod="post" formnovalidate class="rounded-xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">プレビュー</button>
+      <button type="submit" name="action" value="save_draft" class="rounded-xl bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800">下書き保存</button>
+      <button type="submit" name="action" value="approve" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">承認済みとして保存</button>
+    </div>
+  </form>
+
+  <section class="space-y-4">
+    <div class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-200">
+      <h2 class="text-lg font-semibold text-stone-900">プレビュー</h2>
+      <p class="mt-2 text-sm text-stone-600">必須ブロックと年間予定を確認できます。未入力は要確認として表示します。</p>
+    </div>
+    {% if preview_plan %}
+    <div class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-200">
+      <h3 class="text-lg font-semibold text-stone-900">{{ preview_plan.title }}</h3>
+      {% if preview_plan.missing_inputs %}
+      <div class="mt-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">未入力: {{ preview_plan.missing_inputs | join(', ') }}</div>
+      {% endif %}
+      <div class="mt-4 space-y-4">
+        {% for block in preview_plan.blocks %}
+        <article class="rounded-2xl bg-stone-50 p-4">
+          <h4 class="font-semibold text-stone-900">{{ block.title }}</h4>
+          <p class="mt-2 whitespace-pre-line text-sm leading-6 text-stone-700">{{ block.body }}</p>
+        </article>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

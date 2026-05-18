@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 from hoiku_plan_writer.config import Settings
 from hoiku_plan_writer.demo_runtime import DEMO_SESSION_COOKIE_NAME, get_demo_session_manager, reset_demo_runtime_cache
 from hoiku_plan_writer.main import create_app
-from hoiku_plan_writer.persistence.models import PlanDocumentRecord
+from hoiku_plan_writer.persistence.models import PlanDocumentRecord, SafetyPlanRecord
 
 
 class PublicDemoAppTests(unittest.TestCase):
@@ -56,6 +56,11 @@ class PublicDemoAppTests(unittest.TestCase):
         with Session(engine) as session:
             return len(session.exec(select(PlanDocumentRecord)).all())
 
+    def _safety_plan_count(self, session_id: str) -> int:
+        engine = get_demo_session_manager().get_engine(session_id)
+        with Session(engine) as session:
+            return len(session.exec(select(SafetyPlanRecord)).all())
+
     def test_public_demo_sets_cookie_and_shows_seeded_documents(self) -> None:
         response = self.client.get("/documents/")
 
@@ -64,12 +69,18 @@ class PublicDemoAppTests(unittest.TestCase):
         self.assertIn("2026年度 年間指導計画", response.text)
         self.assertIn("2026-05 月案", response.text)
 
+        safety_response = self.client.get("/safety-plans/")
+        self.assertEqual(safety_response.status_code, 200)
+        self.assertIn("2026年度 安全計画", safety_response.text)
+        self.assertIn("必須計画と主要な実施ログは期限内です", safety_response.text)
+
     def test_http_session_isolation_and_reset(self) -> None:
         first_response = self.client.get("/documents/")
         self.assertEqual(first_response.status_code, 200)
         first_session_id = self.client.cookies.get(DEMO_SESSION_COOKIE_NAME)
         self.assertIsNotNone(first_session_id)
         baseline_count = self._document_count(first_session_id)
+        baseline_safety_count = self._safety_plan_count(first_session_id)
 
         create_response = self.client.post(
             "/annual-plans/",
@@ -104,3 +115,4 @@ class PublicDemoAppTests(unittest.TestCase):
         self.assertIsNotNone(second_session_id)
         self.assertNotEqual(first_session_id, second_session_id)
         self.assertEqual(self._document_count(second_session_id), baseline_count)
+        self.assertEqual(self._safety_plan_count(second_session_id), baseline_safety_count)
