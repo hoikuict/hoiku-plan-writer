@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from ...auth import get_current_staff_user, require_can_edit, require_classroom_access
 from ...db import get_session
-from ...persistence.repositories import create_document, get_active_profile_record, profile_record_to_domain
+from ...persistence.repositories import create_document, get_active_profile_record, get_usable_profile_record, profile_record_to_domain
 from ...services.generators import generate_annual_plan
 from ..forms import AnnualPlanFormData, annual_plan_form_data
 from ..templating import render_template
@@ -50,6 +50,7 @@ def new_annual_plan_form(
         current_user=current_user,
         form_data=_default_form(current_user),
         active_profile=get_active_profile_record(session, current_user.nursery_ref),
+        usable_profile=get_usable_profile_record(session, current_user.nursery_ref),
         form_error="",
     )
 
@@ -63,9 +64,9 @@ def preview_annual_plan(
 ):
     require_can_edit(current_user)
     require_classroom_access(current_user, form_data.classroom_ref)
-    profile_record = get_active_profile_record(session, current_user.nursery_ref)
+    profile_record = get_usable_profile_record(session, current_user.nursery_ref)
     if not profile_record:
-        return _preview_context(request, current_user, error_message="先に有効な園プロファイルを登録してください。")
+        return _preview_context(request, current_user, error_message="先に園プロファイルを登録してください。")
 
     plan = generate_annual_plan(profile_record_to_domain(profile_record), form_data.to_domain_input())
     return _preview_context(request, current_user, plan=plan)
@@ -80,7 +81,8 @@ def create_annual_plan(
 ):
     require_can_edit(current_user)
     require_classroom_access(current_user, form_data.classroom_ref)
-    profile_record = get_active_profile_record(session, current_user.nursery_ref)
+    active_profile = get_active_profile_record(session, current_user.nursery_ref)
+    profile_record = get_usable_profile_record(session, current_user.nursery_ref)
     if not profile_record:
         return render_template(
             request,
@@ -88,7 +90,8 @@ def create_annual_plan(
             current_user=current_user,
             form_data=form_data,
             active_profile=None,
-            form_error="有効な園プロファイルが必要です。先に園プロファイルを保存して有効化してください。",
+            usable_profile=None,
+            form_error="先に園プロファイルを登録してください。",
         )
 
     plan = generate_annual_plan(profile_record_to_domain(profile_record), form_data.to_domain_input())

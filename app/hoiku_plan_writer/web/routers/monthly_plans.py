@@ -13,6 +13,7 @@ from ...persistence.repositories import (
     document_record_to_domain,
     get_active_profile_record,
     get_document,
+    get_usable_profile_record,
     list_documents,
     profile_record_to_domain,
 )
@@ -70,6 +71,7 @@ def new_monthly_plan_form(
         current_user=current_user,
         form_data=_default_form(current_user),
         active_profile=get_active_profile_record(session, current_user.nursery_ref),
+        usable_profile=get_usable_profile_record(session, current_user.nursery_ref),
         annual_plan_options=_annual_plan_options(session, current_user),
         term_options=TERM_OPTIONS,
         form_error="",
@@ -85,9 +87,9 @@ def preview_monthly_plan(
 ):
     require_can_edit(current_user)
     require_classroom_access(current_user, form_data.classroom_ref)
-    profile_record = get_active_profile_record(session, current_user.nursery_ref)
+    profile_record = get_usable_profile_record(session, current_user.nursery_ref)
     if not profile_record:
-        return _preview_context(request, current_user, error_message="先に有効な園プロファイルを登録してください。")
+        return _preview_context(request, current_user, error_message="先に園プロファイルを登録してください。")
     if form_data.related_annual_plan_id is None:
         return _preview_context(request, current_user, error_message="関連する年間指導計画を選択してください。")
 
@@ -117,7 +119,8 @@ def create_monthly_plan(
 ):
     require_can_edit(current_user)
     require_classroom_access(current_user, form_data.classroom_ref)
-    profile_record = get_active_profile_record(session, current_user.nursery_ref)
+    active_profile = get_active_profile_record(session, current_user.nursery_ref)
+    profile_record = get_usable_profile_record(session, current_user.nursery_ref)
     annual_plan_options = _annual_plan_options(session, current_user)
 
     if not profile_record:
@@ -127,9 +130,10 @@ def create_monthly_plan(
             current_user=current_user,
             form_data=form_data,
             active_profile=None,
+            usable_profile=None,
             annual_plan_options=annual_plan_options,
             term_options=TERM_OPTIONS,
-            form_error="有効な園プロファイルが必要です。",
+            form_error="先に園プロファイルを登録してください。",
         )
     if form_data.related_annual_plan_id is None:
         return render_template(
@@ -137,7 +141,8 @@ def create_monthly_plan(
             "monthly_plans/form.html",
             current_user=current_user,
             form_data=form_data,
-            active_profile=profile_record,
+            active_profile=active_profile,
+            usable_profile=profile_record,
             annual_plan_options=annual_plan_options,
             term_options=TERM_OPTIONS,
             form_error="関連する年間指導計画を選択してください。",
@@ -154,7 +159,8 @@ def create_monthly_plan(
             "monthly_plans/form.html",
             current_user=current_user,
             form_data=form_data,
-            active_profile=profile_record,
+            active_profile=active_profile,
+            usable_profile=profile_record,
             annual_plan_options=annual_plan_options,
             term_options=TERM_OPTIONS,
             form_error="関連する年間指導計画が見つかりません。",

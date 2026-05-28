@@ -37,6 +37,15 @@ def get_active_profile_record(session: Session, nursery_ref: str) -> NurseryProf
     ).first()
 
 
+def get_usable_profile_record(session: Session, nursery_ref: str) -> NurseryProfileRecord | None:
+    """有効化済みプロファイルを返す。なければ最新保存版を返す（下書き作成用フォールバック）。"""
+    active = get_active_profile_record(session, nursery_ref)
+    if active:
+        return active
+    versions = list_profile_versions(session, nursery_ref)
+    return versions[0] if versions else None
+
+
 def save_profile(
     session: Session,
     *,

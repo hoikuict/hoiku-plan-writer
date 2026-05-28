@@ -7,9 +7,11 @@
       <p class="text-sm font-semibold text-emerald-700">月案</p>
       <h1 class="mt-2 text-3xl font-bold text-stone-900">月案を作成</h1>
       {% if active_profile %}
-      <p class="mt-2 text-sm text-stone-600">有効な園プロファイル: v{{ active_profile.version }} / {{ active_profile.nursery_name }}</p>
+      <p class="mt-2 text-sm text-emerald-700">有効なプロファイル: v{{ active_profile.version }} / {{ active_profile.nursery_name }}</p>
+      {% elif usable_profile %}
+      <p class="mt-2 text-sm text-amber-600">プロファイル v{{ usable_profile.version }} は保存済みですが、まだ有効化されていません。下書きとして保存できます。</p>
       {% else %}
-      <p class="mt-2 text-sm text-amber-700">有効な園プロファイルがまだありません。先に<a href="/nursery-profile/" class="underline">園プロファイル</a>を有効化してください。</p>
+      <p class="mt-2 text-sm text-red-600">園プロファイルがまだありません。先に<a href="/nursery-profile/" class="underline">園プロファイル</a>を登録してください。</p>
       {% endif %}
       {% if form_error %}
       <div class="mt-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">{{ form_error }}</div>
