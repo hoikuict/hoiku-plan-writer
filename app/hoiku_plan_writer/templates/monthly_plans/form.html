@@ -1,15 +1,15 @@
-﻿{% extends "base.html" %}
-{% block title %}月案作成 | hoiku-plan-writer{% endblock %}
+{% extends "base.html" %}
+{% block title %}月案作成 | 保育計画作成支援{% endblock %}
 {% block content %}
 <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_28rem]">
   <form id="monthly-plan-form" method="post" action="/monthly-plans/" class="space-y-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-200">
     <div>
-      <p class="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">Monthly Plan</p>
+      <p class="text-sm font-semibold text-emerald-700">月案</p>
       <h1 class="mt-2 text-3xl font-bold text-stone-900">月案を作成</h1>
       {% if active_profile %}
       <p class="mt-2 text-sm text-stone-600">有効な園プロファイル: v{{ active_profile.version }} / {{ active_profile.nursery_name }}</p>
       {% else %}
-      <p class="mt-2 text-sm text-amber-700">有効な園プロファイルがまだありません。先に園プロファイルを有効化してください。</p>
+      <p class="mt-2 text-sm text-amber-700">有効な園プロファイルがまだありません。先に<a href="/nursery-profile/" class="underline">園プロファイル</a>を有効化してください。</p>
       {% endif %}
       {% if form_error %}
       <div class="mt-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">{{ form_error }}</div>
@@ -17,28 +17,34 @@
     </div>
 
     <section class="grid gap-4 md:grid-cols-2">
-      <label class="block text-sm font-medium text-stone-700">classroom_ref
+      <label class="block text-sm font-medium text-stone-700">担当クラス
         <select name="classroom_ref" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
           {% for classroom_ref in current_user.classroom_refs %}
           <option value="{{ classroom_ref }}" {% if classroom_ref == form_data.classroom_ref %}selected{% endif %}>{{ classroom_ref }}</option>
           {% endfor %}
         </select>
       </label>
-      <label class="block text-sm font-medium text-stone-700">対象月<input name="target_month" value="{{ form_data.target_month }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2"></label>
-      <label class="block text-sm font-medium text-stone-700">クラス名<input name="class_name" value="{{ form_data.class_name }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" required></label>
-      <label class="block text-sm font-medium text-stone-700">担当者<input name="owner_name" value="{{ form_data.owner_name }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" required></label>
+      <label class="block text-sm font-medium text-stone-700">対象月<span class="ml-1 text-xs text-red-500">必須</span>
+        <input name="target_month" value="{{ form_data.target_month }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" placeholder="例：2025年6月">
+      </label>
+      <label class="block text-sm font-medium text-stone-700">クラス名<span class="ml-1 text-xs text-red-500">必須</span>
+        <input name="class_name" value="{{ form_data.class_name }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" placeholder="例：さくら組" required>
+      </label>
+      <label class="block text-sm font-medium text-stone-700">担当者名<span class="ml-1 text-xs text-red-500">必須</span>
+        <input name="owner_name" value="{{ form_data.owner_name }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" placeholder="例：山田 花子" required>
+      </label>
     </section>
 
     <section class="grid gap-4 md:grid-cols-2">
-      <label class="block text-sm font-medium text-stone-700">関連年間指導計画
+      <label class="block text-sm font-medium text-stone-700">関連する年間指導計画
         <select name="related_annual_plan_id_raw" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
-          <option value="">選択してください</option>
+          <option value="">（なし）</option>
           {% for annual_plan in annual_plan_options %}
           <option value="{{ annual_plan.id }}" {% if annual_plan.id == form_data.related_annual_plan_id %}selected{% endif %}>{{ annual_plan.title }}</option>
           {% endfor %}
         </select>
       </label>
-      <label class="block text-sm font-medium text-stone-700">該当期
+      <label class="block text-sm font-medium text-stone-700">該当期<span class="ml-1 text-xs text-red-500">必須</span>
         <select name="related_term_key" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
           {% for option in term_options %}
           <option value="{{ option.value }}" {% if option.value == form_data.related_term_key %}selected{% endif %}>{{ option.label }}</option>
@@ -47,17 +53,58 @@
       </label>
     </section>
 
-    <section class="grid gap-4">
-      <label class="block text-sm font-medium text-stone-700">前月の反省<textarea name="previous_reflection" rows="4" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" required>{{ form_data.previous_reflection }}</textarea></label>
-      <label class="block text-sm font-medium text-stone-700">今の子どもの姿<textarea name="current_children_snapshot" rows="4" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" required>{{ form_data.current_children_snapshot }}</textarea></label>
-      <label class="block text-sm font-medium text-stone-700">興味のある遊び・生活<textarea name="play_interests" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.play_interests }}</textarea></label>
-      <label class="block text-sm font-medium text-stone-700">季節・家庭文脈<textarea name="seasonal_context" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.seasonal_context }}</textarea></label>
-      <label class="block text-sm font-medium text-stone-700">家庭の状況<textarea name="family_context" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.family_context }}</textarea></label>
-      <label class="block text-sm font-medium text-stone-700">クラス全体の留意事項<textarea name="class_notes" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">{{ form_data.class_notes }}</textarea></label>
+    <section class="space-y-4">
+      <h2 class="text-base font-semibold text-stone-800 border-b border-stone-200 pb-2">今月の子どもの姿</h2>
+      <label class="block text-sm font-medium text-stone-700">
+        前月の反省・振り返り<span class="ml-1 text-xs text-red-500">必須</span>
+        <p class="mt-1 text-xs text-stone-500">前月の保育を振り返り、よかった点・改善したい点を書いてください。</p>
+        <textarea name="previous_reflection" rows="4" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" placeholder="例：子ども同士で話し合う場面が増えた。一方で、保育者の関わりが多くなりすぎた場面もあったため、見守る時間を意識したい。" required>{{ form_data.previous_reflection }}</textarea>
+      </label>
+      <label class="block text-sm font-medium text-stone-700">
+        今の子どもの姿<span class="ml-1 text-xs text-red-500">必須</span>
+        <p class="mt-1 text-xs text-stone-500">現在の子どもたちの様子、興味・関心、クラスの雰囲気などを書いてください。</p>
+        <textarea name="current_children_snapshot" rows="4" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" placeholder="例：積み木や製作を通じて友達と一緒に作ることを楽しんでいる。言葉でのやりとりも増えてきた。" required>{{ form_data.current_children_snapshot }}</textarea>
+      </label>
     </section>
 
-    <div class="flex flex-wrap gap-3">
-      <button type="button" hx-post="/monthly-plans/preview" hx-include="#monthly-plan-form" hx-target="#preview-panel" class="rounded-xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">プレビュー</button>
+    <section class="space-y-4">
+      <h2 class="text-base font-semibold text-stone-800 border-b border-stone-200 pb-2">補足情報（任意）</h2>
+      <label class="block text-sm font-medium text-stone-700">
+        興味のある遊び・生活
+        <textarea name="play_interests" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" placeholder="例：ブロック遊び、ごっこ遊び、虫探し">{{ form_data.play_interests }}</textarea>
+      </label>
+      <label class="block text-sm font-medium text-stone-700">
+        季節・家庭文脈
+        <p class="mt-1 text-xs text-stone-500">この月ならではの季節感や、家庭の状況に関わる文脈。</p>
+        <textarea name="seasonal_context" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" placeholder="例：梅雨入りで雨の日が多い。家庭でも虫に興味を持つ子が増えている。">{{ form_data.seasonal_context }}</textarea>
+      </label>
+      <label class="block text-sm font-medium text-stone-700">
+        家庭の状況
+        <p class="mt-1 text-xs text-stone-500">保護者との連携で把握している家庭の様子など。</p>
+        <textarea name="family_context" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" placeholder="例：家庭でも工作や絵本を楽しむ子が多い。送迎時に保護者との対話が増えてきた。">{{ form_data.family_context }}</textarea>
+      </label>
+      <label class="block text-sm font-medium text-stone-700">
+        クラス全体の留意事項
+        <textarea name="class_notes" rows="3" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2" placeholder="例：特定の子ども同士のトラブルが続いているため、関係性を丁寧に見守る。">{{ form_data.class_notes }}</textarea>
+      </label>
+    </section>
+
+    <div class="flex flex-wrap items-center gap-3">
+      <button type="button"
+        hx-post="/monthly-plans/preview"
+        hx-include="#monthly-plan-form"
+        hx-target="#preview-panel"
+        hx-indicator="#preview-loading"
+        class="rounded-xl border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100">
+        プレビューを確認
+      </button>
+      <span id="preview-loading" class="htmx-indicator items-center gap-2 text-sm text-stone-500">
+        <svg class="h-4 w-4 animate-spin text-emerald-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+        </svg>
+        生成中…
+      </span>
       <button type="submit" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">下書きを保存</button>
     </div>
   </form>
@@ -65,7 +112,7 @@
   <section class="space-y-4">
     <div class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-200">
       <h2 class="text-lg font-semibold text-stone-900">プレビュー</h2>
-      <p class="mt-2 text-sm text-stone-600">年間計画の該当期を参照して、サーバ側で月案の下書きを構成します。</p>
+      <p class="mt-2 text-sm text-stone-600">「プレビューを確認」を押すと、年間計画の該当期を参照して月案の下書きが表示されます。</p>
     </div>
     <div id="preview-panel">
       {% include "documents/_preview.html" %}

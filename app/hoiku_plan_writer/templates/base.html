@@ -8,6 +8,9 @@
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   <style>
     [x-cloak] { display: none !important; }
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator { display: inline-flex; }
+    .htmx-request.htmx-indicator { display: inline-flex; }
   </style>
   {% block head %}{% endblock %}
 </head>
@@ -16,8 +19,8 @@
   <div class="min-h-screen lg:grid lg:grid-cols-[18rem_minmax(0,1fr)]">
     <aside class="border-r border-stone-200 bg-white">
       <div class="border-b border-stone-200 px-5 py-5">
-        <a href="/documents/" class="text-lg font-bold text-stone-900">hoiku-plan-writer</a>
-        <p class="mt-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Server-Centered</p>
+        <a href="/documents/" class="text-lg font-bold text-stone-900">保育計画作成支援</a>
+        <p class="mt-1 text-xs font-semibold text-emerald-700">β版</p>
       </div>
 
       <div class="space-y-6 px-4 py-5">

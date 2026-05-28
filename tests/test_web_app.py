@@ -147,7 +147,7 @@ class WebAppTests(unittest.TestCase):
         detail = self.client.get("/documents/2")
         self.assertEqual(detail.status_code, 200)
         self.assertIn("月末の振り返り観点", detail.text)
-        self.assertIn("document:annual-plan", detail.text)
+        self.assertIn("年間指導計画", detail.text)
 
         approve = self.client.post(
             "/documents/2/status",

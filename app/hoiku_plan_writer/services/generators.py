@@ -20,6 +20,29 @@ TERM_FOCUS = {
     "term_4": "育ちを確かめ合い、次の生活への見通しを持つ。",
 }
 
+TERM_REFLECTION = {
+    "term_1": [
+        "子ども一人ひとりが新しい環境に安心して入れていたか。",
+        "保育者との信頼関係が育ちのベースとなっていたか。",
+        "友だちとの最初の関わりが丁寧に育まれていたかを確認する。",
+    ],
+    "term_2": [
+        "子どもが自ら遊びを選び、広げる姿があったか。",
+        "夏の活動を通じて十分な体験が積まれていたか。",
+        "友だちとの遊びが継続するための環境構成は適切だったかを確認する。",
+    ],
+    "term_3": [
+        "子どもが目的を持って仲間と協力する姿が見られたか。",
+        "経験を共有しながら、互いの思いを認め合う関係が育っていたか。",
+        "行事や取り組みが子どもの内側の育ちと連動していたかを確認する。",
+    ],
+    "term_4": [
+        "一年間の育ちを子ども自身が実感できる経験があったか。",
+        "次のクラスへの見通しや期待感が育まれていたか。",
+        "保護者と一年の育ちを共有し、連携が深まっていたかを確認する。",
+    ],
+}
+
 TERM_LABELS = dict(ANNUAL_TERM_ORDER)
 
 
@@ -35,9 +58,9 @@ def generate_annual_plan(profile: NurseryProfile, plan_input: AnnualPlanInput) -
                 confirmation_note,
                 "\n".join(
                     [
-                        f"{plan_input.school_year}年度の{plan_input.class_name}では、{plan_input.focus_growth} を年間の軸に据える。",
-                        f"園としては「{profile.philosophy}」を基盤に、{plan_input.class_outlook}",
-                        f"文体は {profile.sentence_tone or '園の既定トーン'} を保ち、{profile.preferred_expressions or '園らしい表現'} を生かす。",
+                        f"{plan_input.school_year}年度の{plan_input.class_name}では、「{plan_input.focus_growth}」を年間の大きなねらいとして据える。",
+                        f"園の保育理念「{profile.philosophy}」を基盤に、{_ensure_period(plan_input.class_outlook)}",
+                        "子ども一人ひとりの育ちを丁寧に見取りながら、クラス全体の育ちにつなげていく。",
                     ]
                 ),
             ),
@@ -65,7 +88,7 @@ def generate_annual_plan(profile: NurseryProfile, plan_input: AnnualPlanInput) -
                         "\n".join(
                             [
                                 f"{term_label}は、{term_focus}",
-                                f"クラスの見通しとして {plan_input.class_outlook}",
+                                f"{_ensure_period(plan_input.class_outlook)}",
                                 f"年間の大きなねらい「{plan_input.focus_growth}」につながる姿を丁寧に支える。",
                             ]
                         ),
@@ -149,13 +172,7 @@ def generate_annual_plan(profile: NurseryProfile, plan_input: AnnualPlanInput) -
                     title=f"{term_label}の振り返り観点",
                     body=_with_confirmation(
                         confirmation_note,
-                        "\n".join(
-                            [
-                                "子どもが自分なりの思いを出せていたか。",
-                                "友だちとの関わりが次の活動につながっていたか。",
-                                "環境構成と援助が年間のねらいと矛盾なくつながっていたかを確認する。",
-                            ]
-                        ),
+                        "\n".join(TERM_REFLECTION[term_key]),
                     ),
                     evidence_tags=_evidence_tags(include_public_guidance=True),
                     source_refs=[
@@ -373,6 +390,14 @@ def _collect_annual_term_context(annual_plan: GeneratedPlan, related_term_key: s
         and block.section_key.endswith(("outlook", "support"))
     ]
     return " ".join(matching_blocks[:2]).strip()
+
+
+def _ensure_period(text: str) -> str:
+    """文末が句読点で終わっていない場合に読点を補完する。"""
+    t = text.rstrip()
+    if not t:
+        return t
+    return t if t[-1] in "。．！？!?" else t + "。"
 
 
 def _confirmation_text(profile: NurseryProfile, missing_inputs: list[str]) -> str:
