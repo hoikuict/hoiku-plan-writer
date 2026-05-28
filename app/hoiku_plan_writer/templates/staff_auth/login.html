@@ -1,45 +1,38 @@
-﻿{% extends "base.html" %}
-{% block title %}職員ログイン | hoiku-plan-writer{% endblock %}
+{% extends "base.html" %}
+{% block title %}ログイン | 保育計画作成支援{% endblock %}
 {% block content %}
-<div class="mx-auto max-w-2xl rounded-3xl bg-white p-8 shadow-sm ring-1 ring-stone-200">
-  <p class="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">Staff Session</p>
-  <h1 class="mt-2 text-3xl font-bold text-stone-900">職員ログイン</h1>
-  <p class="mt-2 text-sm text-stone-600">`open-hoikuict` と同じく、最初は cookie ベースのモック認証で role / nursery / classroom scope を切り替えます。</p>
+<div class="mx-auto max-w-md rounded-3xl bg-white p-8 shadow-sm ring-1 ring-stone-200">
+  <p class="text-sm font-semibold text-emerald-700">β版</p>
+  <h1 class="mt-2 text-3xl font-bold text-stone-900">ログイン</h1>
+  <p class="mt-2 text-sm text-stone-500">β版のため、簡易ログインを使用しています。</p>
 
   <form method="post" action="/staff/login" class="mt-8 grid gap-5">
     <input type="hidden" name="redirect_to" value="{{ redirect_to }}">
+    <input type="hidden" name="actor_ref" value="{{ current_user.actor_ref }}">
+    <input type="hidden" name="nursery_ref" value="{{ current_user.nursery_ref }}">
+    <input type="hidden" name="classroom_refs_raw" value="{{ current_user.classroom_refs | join(',') }}">
 
     <label class="block text-sm font-medium text-stone-700">
-      表示名
-      <input type="text" name="name" value="{{ current_user.name }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
+      お名前
+      <input type="text" name="name" value="{{ current_user.name }}" placeholder="例：山田 花子" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
     </label>
 
     <label class="block text-sm font-medium text-stone-700">
-      actor_ref
-      <input type="text" name="actor_ref" value="{{ current_user.actor_ref }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
-    </label>
-
-    <label class="block text-sm font-medium text-stone-700">
-      nursery_ref
-      <input type="text" name="nursery_ref" value="{{ current_user.nursery_ref }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
-    </label>
-
-    <label class="block text-sm font-medium text-stone-700">
-      classroom_refs
-      <input type="text" name="classroom_refs_raw" value="{{ current_user.classroom_refs | join(',') }}" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
-      <span class="mt-1 block text-xs text-stone-500">カンマ区切りで指定します。例: classroom:5yo-a,classroom:4yo-a</span>
-    </label>
-
-    <label class="block text-sm font-medium text-stone-700">
-      role
+      権限
       <select name="role" class="mt-2 w-full rounded-xl border border-stone-300 px-3 py-2">
         {% for role in available_roles %}
-        <option value="{{ role.value }}" {% if current_user.role.value == role.value %}selected{% endif %}>{{ role.value }}</option>
+        <option value="{{ role.value }}" {% if current_user.role.value == role.value %}selected{% endif %}>
+          {% if role.value == "admin" %}管理者（プロファイル有効化・承認が可能）
+          {% elif role.value == "can_edit" %}編集者（計画の作成・編集が可能）
+          {% else %}閲覧のみ
+          {% endif %}
+        </option>
         {% endfor %}
       </select>
+      <span class="mt-1 block text-xs text-stone-400">β版：プロファイルの有効化や承認操作には「管理者」が必要です。</span>
     </label>
 
-    <button type="submit" class="rounded-xl bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800">この内容でログイン</button>
+    <button type="submit" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">ログイン</button>
   </form>
 </div>
 {% endblock %}

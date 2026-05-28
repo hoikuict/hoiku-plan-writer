@@ -60,13 +60,15 @@ def nursery_profile_form(
     current_user=Depends(get_current_staff_user),
 ):
     active_profile = get_active_profile_record(session, current_user.nursery_ref)
+    versions = list_profile_versions(session, current_user.nursery_ref)
+    latest_profile = versions[0] if versions else None
     return render_template(
         request,
         "nursery_profiles/form.html",
         current_user=current_user,
-        form_data=_form_from_record(active_profile),
+        form_data=_form_from_record(latest_profile),
         active_profile=active_profile,
-        profile_versions=list_profile_versions(session, current_user.nursery_ref),
+        profile_versions=versions,
         saved=request.query_params.get("saved") == "1",
     )
 

@@ -31,7 +31,7 @@ COOKIE_MAX_AGE = 60 * 60 * 24
 def _parse_role(raw: str | None) -> StaffRole:
     if raw in {item.value for item in StaffRole}:
         return StaffRole(raw)
-    return StaffRole.CAN_EDIT
+    return StaffRole.ADMIN
 
 
 def _parse_classroom_refs(raw: str | None) -> tuple[str, ...]:
